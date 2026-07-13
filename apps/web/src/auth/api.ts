@@ -23,7 +23,7 @@ export async function login(email: string, password: string): Promise<AuthSessio
   return response.json() as Promise<AuthSession>;
 }
 
-export async function register(email: string, password: string, displayName?: string) {
+export async function register(email: string, password: string, displayName?: string): Promise<AuthSession> {
   const response = await fetch(`${BASE_URL}/auth/register`, {
     method: "POST",
     headers: {
@@ -37,5 +37,5 @@ export async function register(email: string, password: string, displayName?: st
     throw new Error("Registration failed");
   }
 
-  return response.json();
+  return response.json() as Promise<AuthSession>;
 }
