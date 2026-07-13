@@ -65,7 +65,8 @@ def main() -> int:
     assert vercel["framework"] == "vite"
     assert vercel["env"]["QCM_MAX_SOURCE_FILE_BYTES"] == "52428800"
     assert "qcm-artifacts-private" in read("infra/supabase/storage_policies.sql")
-    assert "qcm_worker.main" in read("infra/hf-space/Dockerfile")
+    assert "qcm_api.main:app" in read("infra/hf-space/Dockerfile")
+    assert "7860" in read("Dockerfile")
 
     warnings = evaluate_budget(
         UsageSample(source_file_bytes=60_000_000, request_body_bytes=5_000_000),

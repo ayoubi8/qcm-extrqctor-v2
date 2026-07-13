@@ -1,9 +1,35 @@
 """FastAPI entry point with a dependency-light fallback for foundation verification."""
 
+import os
+
 try:
     from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
 except ModuleNotFoundError:  # pragma: no cover - local foundation verification path
     FastAPI = None
+
+
+def _cors_origins() -> list[str]:
+    raw = os.getenv("QCM_CORS_ALLOW_ORIGINS", "*")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _build_auth_provider():
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    anon_key = os.getenv("SUPABASE_ANON_KEY", os.getenv("VITE_SUPABASE_ANON_KEY", "")).strip()
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not supabase_url:
+        return None
+
+    from qcm_infrastructure.auth import SupabaseAuthAdapter, SupabaseAuthSettings
+
+    return SupabaseAuthAdapter(
+        SupabaseAuthSettings(
+            supabase_url=supabase_url,
+            anon_key=anon_key or None,
+            service_role_key=service_role_key or None,
+        )
+    )
 
 
 def create_app():
@@ -26,10 +52,19 @@ def create_app():
     from qcm_api.routes.terminal import create_terminal_router
 
     app = FastAPI(title="QCM Re-Engineered API", version="0.1.0")
+    origins = _cors_origins()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials="*" not in origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    auth_provider = _build_auth_provider()
     health_router = create_health_router()
     if health_router is not None:
         app.include_router(health_router)
-    auth_router = create_auth_router()
+    auth_router = create_auth_router(auth_provider)
     if auth_router is not None:
         app.include_router(auth_router)
     ai_autorun_router = create_ai_autorun_router()

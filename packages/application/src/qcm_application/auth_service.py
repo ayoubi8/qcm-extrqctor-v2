@@ -21,7 +21,7 @@ class AuthProvider(Protocol):
     def sign_in(self, request: LoginRequest, *, correlation_id: str) -> AuthenticatedSession:
         ...
 
-    def sign_up(self, request: RegisterRequest, *, correlation_id: str) -> Profile:
+    def sign_up(self, request: RegisterRequest, *, correlation_id: str) -> AuthenticatedSession:
         ...
 
     def verify_access_token(self, token: str, *, correlation_id: str) -> UserContext:
