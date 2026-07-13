@@ -6,7 +6,7 @@ terminal replay.
 """
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from qcm_domain.tasks import QUEUE_TASK_STATUSES, assert_task_transition, lease_expires_at
@@ -96,7 +96,7 @@ class InMemoryTerminalRepository:
             event_type=event.event_type,
             message=event.message,
             safe_payload=event.safe_payload,
-            created_at=datetime.now(UTC).isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             sequence=self.sequence,
         )
         self.events.append(created)

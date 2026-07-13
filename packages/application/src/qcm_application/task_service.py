@@ -1,7 +1,7 @@
 """Durable task queue and terminal application services."""
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Protocol
 from uuid import uuid4
 
@@ -59,7 +59,7 @@ class TerminalEventRepository(Protocol):
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def iso(value: datetime) -> str:

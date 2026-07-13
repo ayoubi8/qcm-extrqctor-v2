@@ -1,7 +1,7 @@
 """User-private reference database service for Step 4 compatibility."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from qcm_application.ownership import AuthorizationError
 from qcm_domain.reference_db import ReferenceDatabase
@@ -29,7 +29,7 @@ class InMemoryReferenceDbRepository:
             user_id=command.user_id,
             name=command.name,
             qcm_count=len(command.qcms),
-            created_at=datetime.now(UTC).isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
         record = ReferenceDbRecord(metadata=metadata, qcms=command.qcms, idempotency_key=command.idempotency_key)
         self.records[metadata.reference_db_id] = record

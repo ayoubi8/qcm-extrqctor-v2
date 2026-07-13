@@ -1,7 +1,7 @@
 """AI Auto Run deterministic orchestration foundation."""
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import json
 from typing import Any, Protocol
 
@@ -43,7 +43,7 @@ class AiAutoRunArtifactSink(Protocol):
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 class InMemoryAiAutoRunRepository:

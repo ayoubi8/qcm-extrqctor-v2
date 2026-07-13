@@ -1,6 +1,6 @@
 """Run/task use cases for API task creation boundaries."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from qcm_shared.api_contracts import ConfigResolveCommand, RunStepCommand, RunStepResponse
@@ -24,7 +24,7 @@ def create_step_task(
         run_overrides=command.config_overrides,
     )
     snapshot = draft_configuration_snapshot(config_command, created_by=created_by)
-    now = datetime.now(UTC).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     task = Task(
         task_id=str(uuid4()),
         user_id=command.user_id,

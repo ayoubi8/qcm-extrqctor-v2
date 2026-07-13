@@ -1,7 +1,7 @@
 """Manual Auto Run validation, start, and control service."""
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Protocol
 
 from qcm_application.ownership import AuthorizationError
@@ -31,7 +31,7 @@ class TaskCreator(Protocol):
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 class InMemoryManualAutoRunRepository:

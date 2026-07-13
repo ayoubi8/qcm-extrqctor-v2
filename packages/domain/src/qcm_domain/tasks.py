@@ -1,6 +1,6 @@
 """Task state machine, retry, lease, and terminal safety rules."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from qcm_shared.config.defaults import TaskRuntimeDefaults
 from qcm_shared.contracts import TaskStatus, TerminalLevel
@@ -70,7 +70,7 @@ def lease_expires_at(
 def is_lease_expired(lease_expires_at_value: str | None, *, now: datetime | None = None) -> bool:
     if lease_expires_at_value is None:
         return False
-    current = now or datetime.now(UTC)
+    current = now or datetime.now(timezone.utc)
     lease = datetime.fromisoformat(lease_expires_at_value.replace("Z", "+00:00"))
     return lease <= current
 
