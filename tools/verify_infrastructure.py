@@ -26,6 +26,8 @@ REQUIRED_PATHS = [
     "infra/supabase/storage_policies.sql",
     "infra/hf-space/Dockerfile",
     "infra/hf-space/README.md",
+    "app.py",
+    "requirements.txt",
     "docs/runbooks/provider_limits_snapshot.md",
     "docs/runbooks/deployment.md",
     "docs/runbooks/backup_restore.md",
@@ -66,7 +68,9 @@ def main() -> int:
     assert vercel["env"]["QCM_MAX_SOURCE_FILE_BYTES"] == "52428800"
     assert "qcm-artifacts-private" in read("infra/supabase/storage_policies.sql")
     assert "qcm_api.main:app" in read("infra/hf-space/Dockerfile")
-    assert "7860" in read("Dockerfile")
+    assert "uvicorn.run(app" in read("app.py")
+    assert "7860" in read("app.py")
+    assert "gradio" in read("requirements.txt")
 
     warnings = evaluate_budget(
         UsageSample(source_file_bytes=60_000_000, request_body_bytes=5_000_000),

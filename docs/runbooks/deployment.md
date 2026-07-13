@@ -7,10 +7,11 @@ Order:
 3. Create private `qcm-artifacts-private` bucket.
 4. Apply storage policies.
 5. Configure server secrets.
-6. Deploy worker to Hugging Face Spaces.
-7. Deploy frontend and short API flows to Vercel.
-8. Run health checks: `/health`, `/ready`, `/metrics`.
-9. Create a small project and verify terminal replay.
+6. Deploy the API to a Hugging Face Space with SDK `Gradio`, app file `app.py`, and free CPU hardware.
+7. Set `VITE_API_BASE_URL` in Vercel to the Hugging Face Space URL.
+8. Deploy frontend to Vercel.
+9. Run health checks: `/health`, `/ready`, `/metrics`.
+10. Create a small project and verify terminal replay.
 
 Rollback:
 

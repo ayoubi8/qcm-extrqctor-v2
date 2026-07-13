@@ -1,3 +1,10 @@
+---
+title: QCM Extractor API
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # QCM Extractor Re-Engineered
 
 This directory contains the clean implementation workspace for the re-engineered QCM system.
@@ -61,6 +68,10 @@ migrations/   future Supabase/Postgres migrations
 tests/        foundation, contract, and boundary tests
 tools/        local verification helpers
 ```
+
+## Hugging Face Free Backend
+
+Use a Hugging Face Space with SDK `Gradio` and app file `app.py`. The launcher serves the FastAPI backend on port `7860`, which keeps the backend on the free Space path without requiring Docker hardware.
 
 ## Local Verification
 

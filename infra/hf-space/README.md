@@ -1,6 +1,6 @@
 # Hugging Face Spaces API
 
-Role: free-tier Docker Space for the FastAPI backend.
+Role: free-tier Gradio Space launcher for the FastAPI backend.
 
 Responsibilities:
 
@@ -14,3 +14,6 @@ Free CPU Basic expectations:
 - startup can be cold after sleep.
 - temporary disk is not durable.
 - large intermediate files must move to private storage.
+
+Use the repository root `app.py` and `requirements.txt` for the free Gradio SDK deployment.
+The Dockerfile in this folder is retained only as an optional paid Docker Space reference.
