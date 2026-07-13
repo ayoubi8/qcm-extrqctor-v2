@@ -5,7 +5,7 @@ wrap or replace the validation layer with Pydantic v2 models without changing fi
 """
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from qcm_shared.compat import StrEnum
 from typing import Any
 
 

@@ -1,7 +1,7 @@
 """Manual Auto Run contracts."""
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from qcm_shared.compat import StrEnum
 from typing import Any
 
 MANUAL_AUTORUN_TASK_KIND = "manual_autorun"

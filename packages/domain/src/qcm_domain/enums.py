@@ -1,6 +1,6 @@
 """Domain enums that are independent of storage, API, and provider choices."""
 
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 
 
 class ProductStepKey(StrEnum):

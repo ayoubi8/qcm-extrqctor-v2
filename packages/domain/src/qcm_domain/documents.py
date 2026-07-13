@@ -1,7 +1,7 @@
 """Document and page extraction domain rules for Step 1."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 
 DIRECT_TEXT_THRESHOLD = 200
 

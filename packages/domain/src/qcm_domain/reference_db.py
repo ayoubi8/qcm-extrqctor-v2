@@ -1,7 +1,7 @@
 """User-private reference database and similarity matching domain rules."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 from typing import Any
 
 DEFAULT_MATCH_THRESHOLD = 0.75

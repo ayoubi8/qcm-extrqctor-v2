@@ -1,7 +1,7 @@
 """Stable domain errors normalized into API-safe responses."""
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 from typing import Any
 
 from qcm_shared.contracts import ApiError

@@ -1,7 +1,7 @@
 """Future Step 3 correction mode and page-scoring domain rules."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 import re
 
 DEFAULT_CORRECTION_CANDIDATE_THRESHOLD = 15

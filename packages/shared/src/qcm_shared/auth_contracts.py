@@ -1,7 +1,7 @@
 """Shared auth, profile, preference, usage, and audit DTOs."""
 
 from dataclasses import dataclass, field
-from enum import StrEnum
+from qcm_shared.compat import StrEnum
 from typing import Any
 
 from qcm_domain.auth import AppRole, ProfileStatus

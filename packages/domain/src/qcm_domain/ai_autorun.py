@@ -1,7 +1,7 @@
 """Provider-free AI Auto Run document map and evidence validators."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 from typing import Any
 
 

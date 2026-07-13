@@ -1,7 +1,7 @@
 """Provider-free authentication and tenancy domain objects."""
 
 from dataclasses import dataclass
-from enum import StrEnum
+from qcm_domain.compat import StrEnum
 
 
 class AppRole(StrEnum):
