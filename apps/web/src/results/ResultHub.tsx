@@ -27,7 +27,7 @@ export function ResultHub({ artifacts, selectedArtifactVersionId, onSelectArtifa
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-100">{artifact.filename}</span>
-                <StatusBadge tone="neutral">v{artifact.versionNumber}</StatusBadge>
+                <StatusBadge tone="neutral">{`v${artifact.versionNumber}`}</StatusBadge>
               </div>
               <span className="text-xs text-slate-500">{artifact.artifactType}</span>
             </button>
