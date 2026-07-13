@@ -68,9 +68,11 @@ def main() -> int:
     assert vercel["env"]["QCM_MAX_SOURCE_FILE_BYTES"] == "52428800"
     assert "qcm-artifacts-private" in read("infra/supabase/storage_policies.sql")
     assert "qcm_api.main:app" in read("infra/hf-space/Dockerfile")
+    assert "qcm_api.main import app" in read("app.py")
     assert "uvicorn.run(app" in read("app.py")
     assert "7860" in read("app.py")
-    assert "gradio" in read("requirements.txt")
+    assert "fastapi" in read("requirements.txt")
+    assert "gradio" not in read("requirements.txt")
 
     warnings = evaluate_budget(
         UsageSample(source_file_bytes=60_000_000, request_body_bytes=5_000_000),

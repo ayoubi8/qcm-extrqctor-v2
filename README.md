@@ -1,7 +1,5 @@
 ---
-title: QCM Extractor API
-sdk: gradio
-app_file: app.py
+title: QCM Extractor
 pinned: false
 ---
 
@@ -69,9 +67,9 @@ tests/        foundation, contract, and boundary tests
 tools/        local verification helpers
 ```
 
-## Hugging Face Free Backend
+## Vercel Backend
 
-Use a Hugging Face Space with SDK `Gradio` and app file `app.py`. The launcher serves the FastAPI backend on port `7860`, which keeps the backend on the free Space path without requiring Docker hardware.
+Use a second Vercel project for the FastAPI backend with the repository root as its root directory. The root `app.py` exposes the ASGI `app` that Vercel loads for Python functions.
 
 ## Local Verification
 

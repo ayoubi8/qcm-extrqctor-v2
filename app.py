@@ -1,7 +1,4 @@
-"""Hugging Face Gradio Space launcher for the FastAPI backend.
-
-The Space SDK can be Gradio while this process serves FastAPI directly on port 7860.
-"""
+"""Deployment launcher for the FastAPI backend."""
 
 from __future__ import annotations
 
@@ -23,7 +20,7 @@ PYTHONPATHS = [
 for path in reversed(PYTHONPATHS):
     sys.path.insert(0, str(path))
 
-os.environ.setdefault("QCM_DEPLOY_TARGET", "hf-gradio-space")
+os.environ.setdefault("QCM_DEPLOY_TARGET", "vercel-api")
 
 from qcm_api.main import app  # noqa: E402
 
