@@ -1,0 +1,18 @@
+{
+  "schema_version": "qcm-security-matrix.v1",
+  "required_gates": [
+    "two_user_project_denial",
+    "signed_url_owner_check",
+    "reference_db_owner_check",
+    "task_owner_payload_check",
+    "terminal_owner_replay_check",
+    "storage_private_path_check",
+    "ai_no_raw_reasoning_check",
+    "secret_redaction_check"
+  ],
+  "deployed_only_gates": [
+    "supabase_rls_live_policy_check",
+    "supabase_storage_live_policy_check",
+    "realtime_channel_authorization_check"
+  ]
+}

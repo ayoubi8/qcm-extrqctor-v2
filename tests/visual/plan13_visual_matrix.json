@@ -1,0 +1,22 @@
+{
+  "plan": 13,
+  "name": "Frontend Design System And Application Shell",
+  "viewports": [
+    { "name": "mobile", "width": 390, "height": 844 },
+    { "name": "tablet", "width": 768, "height": 1024 },
+    { "name": "desktop", "width": 1440, "height": 900 }
+  ],
+  "states": [
+    "auth-required",
+    "approval-pending",
+    "dashboard-shell",
+    "project-shell",
+    "terminal-footer",
+    "modal",
+    "error",
+    "loading"
+  ],
+  "threshold": {
+    "maxDiffRatio": 0.01
+  }
+}

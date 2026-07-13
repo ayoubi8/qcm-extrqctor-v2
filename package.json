@@ -1,0 +1,14 @@
+{
+  "name": "qcm-reengineered-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "verify": "python tools/verify_foundation.py",
+    "test:python": "python -m unittest discover tests",
+    "web:dev": "npm --workspace apps/web run dev",
+    "web:build": "npm --workspace apps/web run build"
+  }
+}

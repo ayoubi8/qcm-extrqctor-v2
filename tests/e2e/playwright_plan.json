@@ -1,0 +1,13 @@
+{
+  "schema_version": "qcm-e2e-plan.v1",
+  "tool": "playwright",
+  "status": "planned_until_node_dependencies_installed",
+  "workflows": [
+    "create_project_upload_source",
+    "run_visible_step1_to_step4",
+    "restore_history_after_refresh",
+    "manual_autorun_start_pause_cancel",
+    "ai_autorun_manual_intervention",
+    "result_artifact_download"
+  ]
+}

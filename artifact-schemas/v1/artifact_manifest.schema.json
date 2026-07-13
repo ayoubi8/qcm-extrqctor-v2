@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qcm.local/artifact-schemas/v1/artifact_manifest.schema.json",
+  "title": "ArtifactManifest",
+  "type": "object",
+  "required": [
+    "artifact_id",
+    "artifact_version_id",
+    "user_id",
+    "project_id",
+    "artifact_type",
+    "storage_key",
+    "content_type",
+    "checksum",
+    "size_bytes",
+    "schema_version",
+    "retention_policy",
+    "created_at"
+  ],
+  "properties": {
+    "artifact_id": { "type": "string", "format": "uuid" },
+    "artifact_version_id": { "type": "string", "format": "uuid" },
+    "user_id": { "type": "string", "format": "uuid" },
+    "project_id": { "type": "string", "format": "uuid" },
+    "run_id": { "type": ["string", "null"], "format": "uuid" },
+    "artifact_type": { "type": "string" },
+    "storage_key": { "type": "string", "minLength": 1 },
+    "content_type": { "type": "string", "minLength": 1 },
+    "checksum": { "type": "string", "minLength": 32 },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "schema_version": { "type": "string", "minLength": 1 },
+    "retention_policy": { "type": "string" },
+    "source_artifact_ids": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

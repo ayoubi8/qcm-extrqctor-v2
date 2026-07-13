@@ -1,0 +1,23 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  python-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify foundation
+        run: python -B tools/verify_foundation.py
+      - name: Verify infrastructure
+        run: python -B tools/verify_infrastructure.py
+      - name: Verify release gates
+        run: python -B tools/verify_release.py
+      - name: Unit tests
+        run: python -B -m unittest discover tests

@@ -1,0 +1,14 @@
+{
+  "schema_version": "qcm-release-visual-matrix.v1",
+  "status": "planned_until_node_dependencies_installed",
+  "screens": [
+    "auth_required",
+    "dashboard_shell",
+    "pipeline_workflow",
+    "manual_autorun_panel",
+    "ai_autorun_window",
+    "results_history",
+    "terminal_replay",
+    "error_warning_states"
+  ]
+}

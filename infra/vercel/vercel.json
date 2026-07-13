@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "buildCommand": "npm --workspace apps/web run build",
+  "outputDirectory": "apps/web/dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "functions": {
+    "api/**/*.py": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "QCM_DEPLOY_TARGET": "vercel",
+    "QCM_MAX_SOURCE_FILE_BYTES": "52428800"
+  }
+}

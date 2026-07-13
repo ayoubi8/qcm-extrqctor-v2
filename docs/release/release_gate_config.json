@@ -1,0 +1,30 @@
+{
+  "schema_version": "qcm-release-gate.v1",
+  "required_commands": [
+    "python -B tools/verify_foundation.py",
+    "python -B tools/verify_migrations.py",
+    "python -B tools/verify_storage.py",
+    "python -B tools/verify_backend.py",
+    "python -B tools/verify_tasks.py",
+    "python -B tools/verify_step1.py",
+    "python -B tools/verify_step2.py",
+    "python -B tools/verify_step2_pages.py",
+    "python -B tools/verify_step2_metadata.py",
+    "python -B tools/verify_step3_correction.py",
+    "python -B tools/verify_step4_similarity.py",
+    "python -B tools/verify_frontend_shell.py",
+    "python -B tools/verify_frontend_workflow.py",
+    "python -B tools/verify_manual_autorun.py",
+    "python -B tools/verify_ai_autorun.py",
+    "python -B tools/verify_infrastructure.py",
+    "python -B tools/verify_release.py",
+    "python -B -m unittest discover tests"
+  ],
+  "manual_gates": [
+    "review provider limits immediately before production deployment",
+    "approve private fixture handling before importing private PDFs",
+    "run browser e2e and visual tests after node dependencies are installed",
+    "run live Supabase RLS/storage tests in staging",
+    "complete backup/restore drill in staging"
+  ]
+}

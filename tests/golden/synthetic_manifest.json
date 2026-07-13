@@ -1,0 +1,19 @@
+{
+  "schema_version": "qcm-golden-fixtures.v1",
+  "fixture_policy": "synthetic_public_only",
+  "private_fixture_rule": "private_fixtures_do_not_commit_without_explicit_approval",
+  "fixtures": [
+    {
+      "fixture_id": "synthetic-step2-split-duplicate",
+      "covers": ["step2_split_repair", "duplicate_prevention", "final_artifacts"]
+    },
+    {
+      "fixture_id": "synthetic-two-user-denial",
+      "covers": ["owner_scope", "signed_url_denial", "reference_db_privacy"]
+    },
+    {
+      "fixture_id": "synthetic-provider-limit",
+      "covers": ["50mb_file_rejection", "provider_limit_warning", "safe_degradation"]
+    }
+  ]
+}

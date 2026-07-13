@@ -1,0 +1,25 @@
+{
+  "plan": 14,
+  "name": "Frontend Projects Pipeline History Results And Terminal",
+  "viewports": [
+    { "name": "mobile", "width": 390, "height": 844 },
+    { "name": "desktop", "width": 1440, "height": 900 }
+  ],
+  "states": [
+    "project-launcher",
+    "history-restore",
+    "pipeline-step-list",
+    "step-configs",
+    "run-selector",
+    "result-hub",
+    "artifact-viewer",
+    "terminal-replay",
+    "offline-preview"
+  ],
+  "serverStateRules": [
+    "TanStack Query owns project snapshots",
+    "Zustand stores only active step, selected run, and selected artifact UI convenience",
+    "Terminal replay uses cursor polling fallback",
+    "Artifacts are selected by artifact version id"
+  ]
+}

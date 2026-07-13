@@ -1,0 +1,47 @@
+{
+  "schema_version": "prompt-registry.v1",
+  "prompts": [
+    {
+      "prompt_id": "step2.page_qcm_extraction.v1",
+      "schema_version": "step2-page-qcm.v1",
+      "purpose": "Extract QCM candidates from a single page using previous/current/next page context.",
+      "output_contract": "Step2PageTaskOutput"
+    },
+    {
+      "prompt_id": "step2.metadata_cas_clinique.v1",
+      "schema_version": "step2-metadata.v1",
+      "purpose": "Detect metadata and Cas Clinique groupings inside combined Step 2.",
+      "output_contract": "Step2MetadataResult"
+    },
+    {
+      "prompt_id": "step3.correction.page_detection.v1",
+      "schema_version": "step3-correction.v1",
+      "purpose": "Extract correction maps from human-reviewed correction pages.",
+      "output_contract": "Step3CorrectionResult"
+    },
+    {
+      "prompt_id": "step3.correction.vision.v1",
+      "schema_version": "step3-correction.v1",
+      "purpose": "Detect highlighted correction marks and link them to QCM numbers.",
+      "output_contract": "Step3CorrectionResult"
+    },
+    {
+      "prompt_id": "step3.correction.auto_detection.v1",
+      "schema_version": "step3-correction.v1",
+      "purpose": "Scan all pages for correction-like patterns and apply extracted correction maps.",
+      "output_contract": "Step3CorrectionResult"
+    },
+    {
+      "prompt_id": "ai_autorun.planner.v1",
+      "schema_version": "ai-autorun.v1",
+      "purpose": "Plan document map, generated configs, and concise evidence summaries for AI Auto Run.",
+      "output_contract": "AiAutoRunResult"
+    },
+    {
+      "prompt_id": "ai_autorun.evaluator.v1",
+      "schema_version": "ai-autorun.v1",
+      "purpose": "Evaluate AI Auto Run outputs and request manual intervention or safe stop when needed.",
+      "output_contract": "AiAutoRunResult"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+[project]
+name = "qcm-reengineered"
+
+[api]
+enabled = true
+schemas = ["public"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+
+[storage]
+enabled = true
+
+[realtime]
+enabled = true
