@@ -1,7 +1,10 @@
 -- Supabase private storage policy notes for qcm-artifacts-private.
 -- Apply after creating the private bucket.
 
-create policy if not exists "owners read own artifact objects"
+drop policy if exists "owners read own artifact objects" on storage.objects;
+drop policy if exists "owners upload own artifact objects" on storage.objects;
+
+create policy "owners read own artifact objects"
 on storage.objects
 for select
 to authenticated
@@ -10,7 +13,7 @@ using (
   and (storage.foldername(name))[1] = auth.uid()::text
 );
 
-create policy if not exists "owners upload own artifact objects"
+create policy "owners upload own artifact objects"
 on storage.objects
 for insert
 to authenticated
