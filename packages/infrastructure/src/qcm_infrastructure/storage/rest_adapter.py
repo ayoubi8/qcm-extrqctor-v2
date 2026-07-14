@@ -98,10 +98,13 @@ class SupabaseStorageRestAdapter:
             if not signed and isinstance(data.get("data"), dict):
                 signed = data["data"].get("signedUrl")
             if signed:
-                # Supabase returns a relative path; prepend the base URL if needed
+                # Supabase returns a relative path like /object/sign/...
+                # The actual download endpoint is /storage/v1/object/sign/...
                 if str(signed).startswith("/"):
-                    return f"{self._base}{signed}"
-                return str(signed)
+                    return f"{self._base}/storage/v1{signed}"
+                if str(signed).startswith("http"):
+                    return str(signed)
+                return f"{self._base}/storage/v1/{signed}"
         raise StorageError(f"Storage sign returned no signedURL: {data}", status=None)
 
     def delete_many(self, storage_keys: list[str]) -> int:
