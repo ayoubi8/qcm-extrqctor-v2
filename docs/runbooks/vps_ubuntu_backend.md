@@ -67,11 +67,29 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-If you have a domain, point an `A` record to the VPS IP and use Certbot for HTTPS:
+If you do not have a domain yet, use the free `sslip.io` hostname that maps to the VPS IP:
+
+```text
+20.5.176.133.sslip.io
+```
+
+Set `server_name` in `/etc/nginx/sites-available/qcm-extractor-api` to:
+
+```nginx
+server_name 20.5.176.133.sslip.io;
+```
+
+Then use Certbot for HTTPS:
 
 ```bash
 sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.your-domain.com
+sudo certbot --nginx -d 20.5.176.133.sslip.io
+```
+
+After HTTPS is active, test:
+
+```bash
+curl https://20.5.176.133.sslip.io/health
 ```
 
 ## Azure Network Rules
@@ -103,3 +121,9 @@ VITE_API_BASE_URL=https://api.your-domain.com
 ```
 
 Then redeploy the frontend.
+
+Without a custom domain, use:
+
+```env
+VITE_API_BASE_URL=https://20.5.176.133.sslip.io
+```

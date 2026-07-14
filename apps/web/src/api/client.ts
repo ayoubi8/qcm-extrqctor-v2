@@ -1,6 +1,7 @@
 import type { TerminalPage } from "../terminal/types";
+import { API_BASE_URL } from "../config/apiBaseUrl";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const BASE_URL = API_BASE_URL;
 
 export interface ProjectSummary {
   project_id: string;
