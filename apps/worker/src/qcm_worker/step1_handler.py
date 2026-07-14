@@ -12,6 +12,7 @@ try:
     from qcm_infrastructure.pdf import FakeOcrEngine, FakePdfTextExtractor, IdentityTextQualityFixer
     from qcm_infrastructure.pdf.pypdf_extractor import PypdfTextExtractor
     from qcm_infrastructure.pdf.openrouter_text_fixer import OpenRouterTextFixer
+    from qcm_infrastructure.pdf.openrouter_vision_ocr import OpenRouterVisionOcr
     from qcm_infrastructure.storage.rest_adapter import SupabaseStorageRestAdapter
     from qcm_infrastructure.db.postgrest import PostgrestClient
     from qcm_infrastructure.llm.openrouter_adapter import build_openrouter_adapter_from_env
@@ -23,8 +24,8 @@ except ImportError:  # pragma: no cover
 def _build_real_adapters():
     """Build real PDF extractor, OCR, text fixer, and storage downloader from env."""
     extractor = PypdfTextExtractor()
-    ocr = FakeOcrEngine()  # LLM-based OCR deferred; fake as fallback for non-text pages
     adapter = build_openrouter_adapter_from_env()
+    ocr = OpenRouterVisionOcr(adapter, model_id="openai/gpt-4o-mini") if adapter else FakeOcrEngine()
     text_fixer = OpenRouterTextFixer(adapter) if adapter else IdentityTextQualityFixer()
     storage = None
     source_file_repo = None
