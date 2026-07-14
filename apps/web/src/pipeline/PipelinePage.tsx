@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { fetchProjectSnapshot, fetchSignedUrl } from "../api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createProject, fetchProjectSnapshot, fetchSignedUrl, initializeUpload } from "../api/client";
 import { AiAutoRunWindow, useAiAutoRunStore } from "../ai_autorun";
 import { AutoRunNotification, AutoRunPanel, useManualAutoRunStore } from "../autorun";
 import { ProjectShell } from "../components/shell";
@@ -9,9 +9,18 @@ import { HistoryRestorePanel, ProjectLauncher, type ProjectHistoryItem } from ".
 import { ArtifactViewer, ResultHub, RunSelector, type ArtifactVersionItem } from "../results";
 import { ConfigPanel } from "./ConfigPanel";
 import { usePipelineUiStore } from "./pipelineStore";
+import { runStep1 } from "./step1/api";
+import type { Step1Config } from "./step1/types";
+import { runCombinedStep2 } from "./step2/api";
+import type { Step2Config } from "./step2/types";
+import { runStep3Correction } from "./step3-correction/api";
+import type { Step3CorrectionConfig } from "./step3-correction/types";
+import { runStep4Similarity } from "./step4-similarity/api";
+import type { Step4SimilarityConfig } from "./step4-similarity/types";
 import { pipelineSteps } from "./stepRegistry";
 import { StepList } from "./StepList";
 import type { PipelineRunContext, PipelineStepId } from "./types";
+import type { ProjectDraft } from "../projects/types";
 
 interface PipelinePageProps {
   userId: string;
@@ -54,6 +63,7 @@ const demoArtifacts: ArtifactVersionItem[] = [
 ];
 
 export function PipelinePage({ userId }: PipelinePageProps) {
+  const queryClient = useQueryClient();
   const [projectId, setProjectId] = useState("demo-project");
   const { notice, openPanel } = useManualAutoRunStore();
   const openAiWindow = useAiAutoRunStore((state) => state.openWindow);
@@ -68,6 +78,101 @@ export function PipelinePage({ userId }: PipelinePageProps) {
 
   const signedUrl = useMutation({
     mutationFn: (artifactVersionId: string) => fetchSignedUrl(artifactVersionId, `download:${artifactVersionId}`)
+  });
+  const createProjectMutation = useMutation({
+    mutationFn: async (draft: ProjectDraft) => {
+      const created = await createProject(
+        {
+          userId,
+          name: draft.name,
+          idempotencyKey: `project:${userId}:${draft.name}`
+        },
+        `project-create:${Date.now()}`
+      );
+      if (draft.file) {
+        await initializeUpload({
+          userId,
+          projectId: created.project_id,
+          filename: draft.file.name,
+          contentType: draft.file.type || "application/pdf",
+          sizeBytes: draft.file.size,
+          idempotencyKey: `upload:${created.project_id}:${draft.file.name}:${draft.file.size}`
+        });
+      }
+      return created;
+    },
+    onSuccess: async (created) => {
+      setProjectId(created.project_id);
+      setSelectedRun("demo-run");
+      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", created.project_id, userId] });
+      await queryClient.invalidateQueries({ queryKey: ["terminal", created.project_id, userId] });
+    }
+  });
+  const runStepMutation = useMutation({
+    mutationFn: async ({ stepId, payload }: { stepId: PipelineStepId; payload: Record<string, unknown> }) => {
+      const correlationId = `${stepId}:${Date.now()}`;
+      if (stepId === "step1") {
+        return runStep1(
+          {
+            userId,
+            projectId,
+            runId: effectiveRunId,
+            sourceFileId: artifacts[0]?.artifactId ?? "demo-source-file",
+            sourceFilename: artifacts[0]?.filename ?? "source.pdf",
+            config: payload.config as Step1Config,
+            idempotencyKey: `${projectId}:${effectiveRunId}:step1:${Date.now()}`
+          },
+          correlationId
+        );
+      }
+      if (stepId === "step2") {
+        return runCombinedStep2(
+          {
+            userId,
+            projectId,
+            runId: effectiveRunId,
+            step1ArtifactIds: artifacts.map((artifact) => artifact.artifactId),
+            pages: [{ pageNumber: 1, text: "Queued from deployed workspace", sourceArtifactId: artifacts[0]?.artifactId }],
+            config: payload.config as Step2Config,
+            idempotencyKey: `${projectId}:${effectiveRunId}:step2:${Date.now()}`
+          },
+          correlationId
+        );
+      }
+      if (stepId === "step3-correction") {
+        return runStep3Correction(
+          {
+            userId,
+            projectId,
+            runId: effectiveRunId,
+            step2ArtifactIds: artifacts.map((artifact) => artifact.artifactId),
+            qcms: [],
+            pages: [{ pageNumber: 1, text: "Queued from deployed workspace", sourceArtifactId: artifacts[0]?.artifactId }],
+            config: payload.config as Step3CorrectionConfig,
+            idempotencyKey: `${projectId}:${effectiveRunId}:step3-correction:${Date.now()}`
+          },
+          correlationId
+        );
+      }
+      return runStep4Similarity(
+        {
+          userId,
+          projectId,
+          runId: effectiveRunId,
+          sourceArtifactIds: artifacts.map((artifact) => artifact.artifactId),
+          sourceQcms: [],
+          referenceQcms: [],
+          existingMatches: [],
+          config: payload.config as Step4SimilarityConfig,
+          idempotencyKey: `${projectId}:${effectiveRunId}:step4-similarity:${Date.now()}`
+        },
+        correlationId
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", projectId, userId] });
+      await queryClient.invalidateQueries({ queryKey: ["terminal", projectId, userId] });
+    }
   });
 
   const runs = snapshot.data?.runs ?? [
@@ -88,7 +193,7 @@ export function PipelinePage({ userId }: PipelinePageProps) {
 
   const handleRunStep = (stepId: PipelineStepId, payload: Record<string, unknown>) => {
     setActiveStep(stepId);
-    console.info("Queued step payload", payload);
+    runStepMutation.mutate({ stepId, payload });
   };
 
   return (
@@ -113,7 +218,7 @@ export function PipelinePage({ userId }: PipelinePageProps) {
       </div>
       <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
-          <ProjectLauncher onCreate={(draft) => console.info("Create project draft", draft)} />
+          <ProjectLauncher onCreate={(draft) => createProjectMutation.mutate(draft)} />
           <HistoryRestorePanel items={demoHistory} selectedProjectId={projectId} onRestore={setProjectId} />
         </div>
 

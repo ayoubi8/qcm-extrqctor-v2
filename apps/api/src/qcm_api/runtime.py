@@ -21,6 +21,8 @@ from qcm_shared.api_contracts import ConfigResolveCommand, ProjectCreateCommand,
 from qcm_shared.contracts import Task
 from qcm_shared.provider_contracts import ModelAuthorization, ModelSelection, ProviderKey
 from qcm_shared.storage_contracts import SignedUrlRequest, SignedUrlResponse, UploadInitRequest
+from qcm_shared.task_contracts import TerminalEventCreate
+from qcm_shared.contracts import TerminalEventType, TerminalLevel
 
 
 def utc_now() -> str:
@@ -28,10 +30,12 @@ def utc_now() -> str:
 
 
 class RuntimeProjectService:
-    def __init__(self, task_repository: InMemoryTaskRepository) -> None:
+    def __init__(self, task_repository: InMemoryTaskRepository, terminal_repository: InMemoryTerminalRepository) -> None:
         self.task_repository = task_repository
+        self.terminal_repository = terminal_repository
         self.projects: dict[str, ProjectSummary] = {}
         self.idempotency: dict[tuple[str, str], str] = {}
+        self.seeded_terminal_projects: set[tuple[str, str]] = set()
 
     def create_project(self, command: ProjectCreateCommand) -> ProjectSummary:
         key = (command.user_id, command.idempotency_key)
@@ -46,9 +50,21 @@ class RuntimeProjectService:
         )
         self.projects[project.project_id] = project
         self.idempotency[key] = project.project_id
+        self._ensure_terminal_seed(
+            user_id=project.user_id,
+            project_id=project.project_id,
+            run_id="demo-run",
+            message="Project workspace created",
+        )
         return project
 
     def snapshot(self, *, user_id: str, project_id: str) -> dict:
+        self._ensure_terminal_seed(
+            user_id=user_id,
+            project_id=project_id,
+            run_id="demo-run",
+            message="Project snapshot restored",
+        )
         project = self.projects.get(project_id) or ProjectSummary(
             project_id=project_id,
             user_id=user_id,
@@ -76,6 +92,23 @@ class RuntimeProjectService:
             "tasks": tasks,
             "artifacts": [],
         }
+
+    def _ensure_terminal_seed(self, *, user_id: str, project_id: str, run_id: str, message: str) -> None:
+        key = (user_id, project_id)
+        if key in self.seeded_terminal_projects:
+            return
+        self.terminal_repository.append(
+            TerminalEventCreate(
+                user_id=user_id,
+                project_id=project_id,
+                run_id=run_id,
+                level=TerminalLevel.SUCCESS,
+                event_type=TerminalEventType.SYSTEM_MESSAGE,
+                message=message,
+                safe_payload={"runtime": "vps-api"},
+            )
+        )
+        self.seeded_terminal_projects.add(key)
 
     def _task_summary(self, task: Task) -> dict:
         return {
@@ -133,7 +166,7 @@ class RuntimeServices:
         task_repository = InMemoryTaskRepository()
         terminal_repository = InMemoryTerminalRepository()
         self.task_service = TaskService(task_repository, terminal_repository)
-        self.project_service = RuntimeProjectService(task_repository)
+        self.project_service = RuntimeProjectService(task_repository, terminal_repository)
         self.artifact_service = RuntimeArtifactService()
         self.config_service = RuntimeConfigService()
         self.model_service = RuntimeModelService()
