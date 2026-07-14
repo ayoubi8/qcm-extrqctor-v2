@@ -6,12 +6,11 @@ import { useTerminalReplay } from "./useTerminalReplay";
 
 interface TerminalPanelProps {
   projectId: string | null;
-  userId: string | null;
   fallbackEvents?: TerminalEvent[];
 }
 
-export function TerminalPanel({ projectId, userId, fallbackEvents = [] }: TerminalPanelProps) {
-  const { data, isLoading, isError } = useTerminalReplay(projectId, userId);
+export function TerminalPanel({ projectId, fallbackEvents = [] }: TerminalPanelProps) {
+  const { data, isLoading, isError } = useTerminalReplay(projectId);
   const events = data?.events ?? fallbackEvents;
 
   return (

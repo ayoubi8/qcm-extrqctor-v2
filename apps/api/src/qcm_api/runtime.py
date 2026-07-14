@@ -1,11 +1,13 @@
 """Runtime service wiring for the deployed API.
 
-These services provide a live, lightweight backend foundation while durable repository
-adapters are brought online.
+When Supabase settings are present the API binds durable PostgREST repositories
+(service-role; ownership still enforced by the auth dependency and user_id filtering).
+Otherwise it falls back to in-memory repositories so contract/verify scripts stay green.
 """
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -16,6 +18,7 @@ from qcm_application.autorun_service import ManualAutoRunService
 from qcm_application.config_resolver import ConfigSource, resolve_configuration
 from qcm_application.reference_db_service import ReferenceDbService
 from qcm_application.task_service import TaskService
+from qcm_infrastructure.db.memory import InMemoryPipelineRunRepository, InMemoryProjectRepository
 from qcm_infrastructure.tasks.memory import InMemoryTaskRepository, InMemoryTerminalRepository
 from qcm_shared.api_contracts import ConfigResolveCommand, ProjectCreateCommand, ProjectSummary
 from qcm_shared.contracts import Task
@@ -29,96 +32,89 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _supabase_env_present() -> bool:
+    return bool(os.getenv("SUPABASE_URL")) and bool(os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
+
+
+def _build_supabase_client():
+    from qcm_infrastructure.db.postgrest import PostgrestClient
+
+    return PostgrestClient(
+        base_url=os.getenv("SUPABASE_URL", ""),
+        api_key=os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "",
+        service_role=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+    )
+
+
 class RuntimeProjectService:
-    def __init__(self, task_repository: InMemoryTaskRepository, terminal_repository: InMemoryTerminalRepository) -> None:
+    def __init__(self, project_repo, run_repo, task_repository, terminal_repository) -> None:
+        self.project_repo = project_repo
+        self.run_repo = run_repo
         self.task_repository = task_repository
         self.terminal_repository = terminal_repository
-        self.projects: dict[str, ProjectSummary] = {}
-        self.idempotency: dict[tuple[str, str], str] = {}
-        self.seeded_terminal_projects: set[tuple[str, str]] = set()
+        self.seeded_projects: set[str] = set()
 
     def create_project(self, command: ProjectCreateCommand) -> ProjectSummary:
-        key = (command.user_id, command.idempotency_key)
-        if key in self.idempotency:
-            return self.projects[self.idempotency[key]]
-        project = ProjectSummary(
-            project_id=str(uuid4()),
-            user_id=command.user_id,
-            name=command.name or "Untitled project",
-            status="active",
-            updated_at=utc_now(),
-        )
-        self.projects[project.project_id] = project
-        self.idempotency[key] = project.project_id
-        self._ensure_terminal_seed(
-            user_id=project.user_id,
-            project_id=project.project_id,
-            run_id="demo-run",
-            message="Project workspace created",
-        )
+        project = self.project_repo.create_project(command)
+        self.run_repo.ensure_run(user_id=project.user_id, project_id=project.project_id)
+        self._seed_terminal(project.user_id, project.project_id, None, "Project workspace created")
         return project
 
     def snapshot(self, *, user_id: str, project_id: str) -> dict:
-        self._ensure_terminal_seed(
-            user_id=user_id,
-            project_id=project_id,
-            run_id="demo-run",
-            message="Project snapshot restored",
-        )
-        project = self.projects.get(project_id) or ProjectSummary(
-            project_id=project_id,
-            user_id=user_id,
-            name="Demo QCM workspace",
-            status="active",
-            updated_at=utc_now(),
-        )
-        tasks = [
-            self._task_summary(task)
-            for task in self.task_repository.tasks.values()
-            if task.user_id == user_id and task.project_id == project_id
-        ]
+        project = self.project_repo.get_project(user_id=user_id, project_id=project_id)
+        if project is None:
+            raise KeyError(project_id)
+        runs = self.run_repo.list_runs(user_id=user_id, project_id=project_id)
+        tasks = self._task_summaries(user_id=user_id, project_id=project_id)
         return {
             "project": asdict(project),
             "runs": [
                 {
-                    "runId": "demo-run",
-                    "projectId": project_id,
-                    "label": "Latest run",
-                    "status": "draft",
-                    "createdAt": project.updated_at,
-                    "updatedAt": project.updated_at,
+                    "runId": run["run_id"],
+                    "projectId": run["project_id"],
+                    "label": "Run",
+                    "status": run["status"],
+                    "createdAt": run["created_at"],
+                    "updatedAt": run["updated_at"],
                 }
+                for run in runs
             ],
             "tasks": tasks,
             "artifacts": [],
         }
 
-    def _ensure_terminal_seed(self, *, user_id: str, project_id: str, run_id: str, message: str) -> None:
+    def _task_summaries(self, *, user_id: str, project_id: str) -> list[dict]:
+        tasks = self.task_repository.list_tasks(user_id=user_id, project_id=project_id) if hasattr(self.task_repository, "list_tasks") else []
+        return [
+            {
+                "taskId": task.task_id,
+                "kind": task.kind,
+                "status": task.status.value,
+                "runId": task.run_id,
+                "updatedAt": task.updated_at,
+                "safeMessage": task.last_error_code,
+            }
+            for task in tasks
+        ]
+
+    def _seed_terminal(self, user_id: str, project_id: str, run_id: str | None, message: str) -> None:
         key = (user_id, project_id)
-        if key in self.seeded_terminal_projects:
+        if key in self.seeded_projects:
             return
+        runs = self.run_repo.list_runs(user_id=user_id, project_id=project_id)
+        seed_run = run_id or (runs[0]["run_id"] if runs else None)
         self.terminal_repository.append(
             TerminalEventCreate(
                 user_id=user_id,
                 project_id=project_id,
-                run_id=run_id,
+                run_id=seed_run,
                 level=TerminalLevel.SUCCESS,
                 event_type=TerminalEventType.SYSTEM_MESSAGE,
                 message=message,
                 safe_payload={"runtime": "vps-api"},
             )
         )
-        self.seeded_terminal_projects.add(key)
-
-    def _task_summary(self, task: Task) -> dict:
-        return {
-            "taskId": task.task_id,
-            "kind": task.kind,
-            "status": task.status.value,
-            "runId": task.run_id,
-            "updatedAt": task.updated_at,
-            "safeMessage": task.last_error_code,
-        }
+        self.seeded_projects.add(key)
 
 
 class RuntimeArtifactService:
@@ -163,10 +159,31 @@ class RuntimeModelService:
 
 class RuntimeServices:
     def __init__(self) -> None:
-        task_repository = InMemoryTaskRepository()
-        terminal_repository = InMemoryTerminalRepository()
+        task_repository: object
+        terminal_repository: object
+        project_repo: object
+        run_repo: object
+        if _supabase_env_present():
+            from qcm_infrastructure.db.repositories import (
+                SupabasePipelineRunRepository,
+                SupabaseProjectRepository,
+                SupabaseTaskRepository,
+                SupabaseTerminalRepository,
+            )
+
+            client = _build_supabase_client()
+            project_repo = SupabaseProjectRepository(client)
+            run_repo = SupabasePipelineRunRepository(client)
+            task_repository = SupabaseTaskRepository(client)
+            terminal_repository = SupabaseTerminalRepository(client)
+        else:
+            project_repo = InMemoryProjectRepository()
+            run_repo = InMemoryPipelineRunRepository()
+            task_repository = InMemoryTaskRepository()
+            terminal_repository = InMemoryTerminalRepository()
+
         self.task_service = TaskService(task_repository, terminal_repository)
-        self.project_service = RuntimeProjectService(task_repository, terminal_repository)
+        self.project_service = RuntimeProjectService(project_repo, run_repo, task_repository, terminal_repository)
         self.artifact_service = RuntimeArtifactService()
         self.config_service = RuntimeConfigService()
         self.model_service = RuntimeModelService()

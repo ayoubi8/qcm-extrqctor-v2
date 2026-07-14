@@ -51,6 +51,7 @@ def create_app():
     from qcm_api.routes.tasks import create_tasks_router
     from qcm_api.routes.terminal import create_terminal_router
     from qcm_api.runtime import runtime_services
+    from qcm_api.security import build_active_user_dependency
 
     app = FastAPI(title="QCM Re-Engineered API", version="0.1.0")
     origins = _cors_origins()
@@ -62,46 +63,47 @@ def create_app():
         allow_headers=["*"],
     )
     auth_provider = _build_auth_provider()
+    active_user = build_active_user_dependency(auth_provider)
     health_router = create_health_router()
     if health_router is not None:
         app.include_router(health_router)
     auth_router = create_auth_router(auth_provider)
     if auth_router is not None:
         app.include_router(auth_router)
-    ai_autorun_router = create_ai_autorun_router(runtime_services.ai_autorun_service)
+    ai_autorun_router = create_ai_autorun_router(runtime_services.ai_autorun_service, active_user)
     if ai_autorun_router is not None:
         app.include_router(ai_autorun_router)
-    autorun_router = create_autorun_router(runtime_services.autorun_service)
+    autorun_router = create_autorun_router(runtime_services.autorun_service, active_user)
     if autorun_router is not None:
         app.include_router(autorun_router)
-    artifacts_router = create_artifacts_router(runtime_services.artifact_service)
+    artifacts_router = create_artifacts_router(runtime_services.artifact_service, active_user)
     if artifacts_router is not None:
         app.include_router(artifacts_router)
-    projects_router = create_projects_router(runtime_services.project_service)
+    projects_router = create_projects_router(runtime_services.project_service, active_user)
     if projects_router is not None:
         app.include_router(projects_router)
-    config_router = create_config_router(runtime_services.config_service, runtime_services.model_service)
+    config_router = create_config_router(runtime_services.config_service, runtime_services.model_service, active_user)
     if config_router is not None:
         app.include_router(config_router)
-    tasks_router = create_tasks_router(runtime_services.task_service)
+    tasks_router = create_tasks_router(runtime_services.task_service, active_user)
     if tasks_router is not None:
         app.include_router(tasks_router)
-    terminal_router = create_terminal_router(runtime_services.task_service)
+    terminal_router = create_terminal_router(runtime_services.task_service, active_user)
     if terminal_router is not None:
         app.include_router(terminal_router)
-    step1_router = create_step1_router(runtime_services.task_service)
+    step1_router = create_step1_router(runtime_services.task_service, active_user)
     if step1_router is not None:
         app.include_router(step1_router)
-    step2_router = create_step2_router(runtime_services.task_service)
+    step2_router = create_step2_router(runtime_services.task_service, active_user)
     if step2_router is not None:
         app.include_router(step2_router)
-    step3_correction_router = create_step3_correction_router(runtime_services.task_service)
+    step3_correction_router = create_step3_correction_router(runtime_services.task_service, active_user)
     if step3_correction_router is not None:
         app.include_router(step3_correction_router)
-    step4_similarity_router = create_step4_similarity_router(runtime_services.task_service)
+    step4_similarity_router = create_step4_similarity_router(runtime_services.task_service, active_user)
     if step4_similarity_router is not None:
         app.include_router(step4_similarity_router)
-    reference_dbs_router = create_reference_dbs_router(runtime_services.reference_db_service)
+    reference_dbs_router = create_reference_dbs_router(runtime_services.reference_db_service, active_user)
     if reference_dbs_router is not None:
         app.include_router(reference_dbs_router)
 

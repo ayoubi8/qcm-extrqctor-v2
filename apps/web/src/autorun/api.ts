@@ -20,10 +20,9 @@ export function validateManualAutoRunDraft(projectId: string, draft: ManualAutoR
   return validateManualAutoRun(projectId, toManualAutoRunSnapshot(draft));
 }
 
-export function startManualAutoRunDraft(userId: string, projectId: string, runId: string, draft: ManualAutoRunDraft) {
+export function startManualAutoRunDraft(projectId: string, runId: string, draft: ManualAutoRunDraft) {
   return startManualAutoRun(
     {
-      userId,
       projectId,
       runId,
       autoRunId: draft.autoRunId,
@@ -35,10 +34,9 @@ export function startManualAutoRunDraft(userId: string, projectId: string, runId
 }
 
 export function controlManualAutoRunDraft(
-  userId: string,
   projectId: string,
   autoRunId: string,
   action: ManualAutoRunControlAction
 ) {
-  return controlManualAutoRun(projectId, autoRunId, action, userId, `manual-autorun:${autoRunId}:${action}`);
+  return controlManualAutoRun(projectId, autoRunId, action, `manual-autorun:${autoRunId}:${action}`);
 }

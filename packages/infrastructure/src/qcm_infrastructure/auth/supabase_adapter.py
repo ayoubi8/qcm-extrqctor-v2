@@ -216,6 +216,9 @@ class SupabaseAuthAdapter:
             return existing
 
         assert httpx is not None
+        is_first_user = self._profiles_empty(correlation_id=correlation_id)
+        role = AppRole.ADMIN.value if is_first_user else AppRole.USER.value
+        profile_status = ProfileStatus.ACTIVE.value if is_first_user else ProfileStatus.PENDING_APPROVAL.value
         response = httpx.post(
             f"{self._base_url}/rest/v1/profiles?on_conflict=user_id",
             headers=self._headers(use_service_role=True, correlation_id=correlation_id)
@@ -224,8 +227,8 @@ class SupabaseAuthAdapter:
                 "user_id": user_id,
                 "email": email,
                 "display_name": display_name,
-                "role": AppRole.USER.value,
-                "status": ProfileStatus.PENDING_APPROVAL.value,
+                "role": role,
+                "status": profile_status,
             },
             timeout=20,
         )
@@ -250,6 +253,18 @@ class SupabaseAuthAdapter:
         self._raise_for_status(response, operation="profile_fetch")
         rows = response.json()
         return self._profile_from_row(rows[0]) if rows else None
+
+    def _profiles_empty(self, *, correlation_id: str) -> bool:
+        """Return True when no profiles exist yet (first-user bootstrap signal)."""
+        assert httpx is not None
+        response = httpx.get(
+            f"{self._base_url}/rest/v1/profiles",
+            headers=self._headers(use_service_role=True, correlation_id=correlation_id),
+            params={"select": "user_id", "limit": "1"},
+            timeout=20,
+        )
+        self._raise_for_status(response, operation="profiles_bootstrap_check")
+        return not response.json()
 
     def _raise_for_status(self, response, *, operation: str) -> None:
         if response.status_code < 400:

@@ -1,5 +1,6 @@
 """Manual Auto Run API route factory."""
 
+from qcm_domain.auth import UserContext
 from qcm_shared.autorun_contracts import (
     MANUAL_AUTORUN_SCHEMA_VERSION,
     ManualAutoRunControlAction,
@@ -10,7 +11,7 @@ from qcm_shared.autorun_contracts import (
 )
 
 try:
-    from fastapi import APIRouter, Header, HTTPException, status
+    from fastapi import APIRouter, Depends, Header, HTTPException, status
 except ModuleNotFoundError:  # pragma: no cover
     APIRouter = None
 
@@ -34,26 +35,26 @@ def _snapshot_from_payload(payload: dict) -> ManualAutoRunSnapshot:
     )
 
 
-def create_autorun_router(autorun_service=None):
+def create_autorun_router(autorun_service=None, current_user=None):
     if APIRouter is None:
         return None
 
     router = APIRouter(prefix="/projects/{project_id}/manual-autoruns", tags=["manual-autorun"])
 
     @router.post("/validate")
-    def validate_manual_autorun(project_id: str, payload: dict):
+    def validate_manual_autorun(project_id: str, payload: dict, user: UserContext = Depends(current_user)):
         if autorun_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Manual Auto Run unavailable")
         return autorun_service.validate(_snapshot_from_payload(payload).selected_steps)
 
     @router.post("")
-    def start_manual_autorun(project_id: str, payload: dict, x_correlation_id: str = Header(default="missing-correlation-id")):
+    def start_manual_autorun(project_id: str, payload: dict, user: UserContext = Depends(current_user), x_correlation_id: str = Header(default="missing-correlation-id")):
         if autorun_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Manual Auto Run unavailable")
         try:
             return autorun_service.start(
                 ManualAutoRunStartCommand(
-                    user_id=payload.get("user_id", ""),
+                    user_id=user.user_id,
                     project_id=project_id,
                     run_id=payload.get("run_id", ""),
                     auto_run_id=payload.get("auto_run_id", ""),
@@ -71,13 +72,14 @@ def create_autorun_router(autorun_service=None):
         auto_run_id: str,
         action: ManualAutoRunControlAction,
         payload: dict,
+        user: UserContext = Depends(current_user),
         x_correlation_id: str = Header(default="missing-correlation-id"),
     ):
         if autorun_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Manual Auto Run unavailable")
         return autorun_service.control(
             ManualAutoRunControlCommand(
-                user_id=payload.get("user_id", ""),
+                user_id=user.user_id,
                 project_id=project_id,
                 auto_run_id=auto_run_id,
                 action=action,

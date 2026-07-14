@@ -15,7 +15,6 @@ export interface Step4SimilarityConfig {
 }
 
 export interface Step4SimilarityRunRequest {
-  userId: string;
   projectId: string;
   runId: string;
   sourceArtifactIds: string[];

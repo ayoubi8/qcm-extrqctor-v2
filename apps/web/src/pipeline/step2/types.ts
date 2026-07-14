@@ -27,7 +27,6 @@ export interface Step2SourcePage {
 }
 
 export interface Step2RunRequest {
-  userId: string;
   projectId: string;
   runId: string;
   step1ArtifactIds: string[];

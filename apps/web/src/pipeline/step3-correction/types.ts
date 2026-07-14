@@ -17,7 +17,6 @@ export interface Step3CorrectionPage {
 }
 
 export interface Step3CorrectionRunRequest {
-  userId: string;
   projectId: string;
   runId: string;
   step2ArtifactIds: string[];

@@ -23,7 +23,6 @@ import type { PipelineRunContext, PipelineStepId } from "./types";
 import type { ProjectDraft } from "../projects/types";
 
 interface PipelinePageProps {
-  userId: string;
   projectId: string;
   onProjectChange: (projectId: string) => void;
 }
@@ -64,16 +63,16 @@ const demoArtifacts: ArtifactVersionItem[] = [
   }
 ];
 
-export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePageProps) {
+export function PipelinePage({ projectId, onProjectChange }: PipelinePageProps) {
   const queryClient = useQueryClient();
   const { notice, openPanel } = useManualAutoRunStore();
   const openAiWindow = useAiAutoRunStore((state) => state.openWindow);
   const { activeStepId, selectedRunId, selectedArtifactVersionId, setActiveStep, setSelectedRun, setSelectedArtifactVersion } = usePipelineUiStore();
 
   const snapshot = useQuery({
-    queryKey: ["project-snapshot", projectId, userId],
-    queryFn: () => fetchProjectSnapshot(projectId, userId),
-    enabled: Boolean(projectId && userId),
+    queryKey: ["project-snapshot", projectId],
+    queryFn: () => fetchProjectSnapshot(projectId),
+    enabled: Boolean(projectId),
     retry: false
   });
 
@@ -84,15 +83,13 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
     mutationFn: async (draft: ProjectDraft) => {
       const created = await createProject(
         {
-          userId,
           name: draft.name,
-          idempotencyKey: `project:${userId}:${draft.name}`
+          idempotencyKey: `project:${draft.name}`
         },
         `project-create:${Date.now()}`
       );
       if (draft.file) {
         await initializeUpload({
-          userId,
           projectId: created.project_id,
           filename: draft.file.name,
           contentType: draft.file.type || "application/pdf",
@@ -105,8 +102,8 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
     onSuccess: async (created) => {
       onProjectChange(created.project_id);
       setSelectedRun("demo-run");
-      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", created.project_id, userId] });
-      await queryClient.invalidateQueries({ queryKey: ["terminal", created.project_id, userId] });
+      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", created.project_id] });
+      await queryClient.invalidateQueries({ queryKey: ["terminal", created.project_id] });
     }
   });
   const runStepMutation = useMutation({
@@ -115,7 +112,6 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
       if (stepId === "step1") {
         return runStep1(
           {
-            userId,
             projectId,
             runId: effectiveRunId,
             sourceFileId: artifacts[0]?.artifactId ?? "demo-source-file",
@@ -129,7 +125,6 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
       if (stepId === "step2") {
         return runCombinedStep2(
           {
-            userId,
             projectId,
             runId: effectiveRunId,
             step1ArtifactIds: artifacts.map((artifact) => artifact.artifactId),
@@ -143,7 +138,6 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
       if (stepId === "step3-correction") {
         return runStep3Correction(
           {
-            userId,
             projectId,
             runId: effectiveRunId,
             step2ArtifactIds: artifacts.map((artifact) => artifact.artifactId),
@@ -157,7 +151,6 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
       }
       return runStep4Similarity(
         {
-          userId,
           projectId,
           runId: effectiveRunId,
           sourceArtifactIds: artifacts.map((artifact) => artifact.artifactId),
@@ -171,8 +164,8 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
       );
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", projectId, userId] });
-      await queryClient.invalidateQueries({ queryKey: ["terminal", projectId, userId] });
+      await queryClient.invalidateQueries({ queryKey: ["project-snapshot", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["terminal", projectId] });
     }
   });
 
@@ -184,12 +177,11 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
   const selectedArtifact = artifacts.find((artifact) => artifact.artifactVersionId === selectedArtifactVersionId) ?? artifacts[0] ?? null;
   const context: PipelineRunContext = useMemo(
     () => ({
-      userId,
       projectId,
       runId: effectiveRunId,
       sourceArtifactIds: artifacts.map((artifact) => artifact.artifactId)
     }),
-    [artifacts, effectiveRunId, projectId, userId]
+    [artifacts, effectiveRunId, projectId]
   );
 
   const handleRunStep = (stepId: PipelineStepId, payload: Record<string, unknown>) => {
@@ -248,8 +240,8 @@ export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePag
           </Button>
         </div>
       </div>
-      <AutoRunPanel userId={userId} projectId={projectId} runId={effectiveRunId} />
-      <AiAutoRunWindow userId={userId} projectId={projectId} runId={effectiveRunId} />
+      <AutoRunPanel projectId={projectId} runId={effectiveRunId} />
+      <AiAutoRunWindow projectId={projectId} runId={effectiveRunId} />
     </ProjectShell>
   );
 }

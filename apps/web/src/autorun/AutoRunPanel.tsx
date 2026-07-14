@@ -5,16 +5,15 @@ import { controlManualAutoRunDraft, startManualAutoRunDraft, validateManualAutoR
 import { useManualAutoRunStore } from "./autorunStore";
 
 interface AutoRunPanelProps {
-  userId: string;
   projectId: string;
   runId: string;
 }
 
-export function AutoRunPanel({ userId, projectId, runId }: AutoRunPanelProps) {
+export function AutoRunPanel({ projectId, runId }: AutoRunPanelProps) {
   const { panelOpen, draft, closePanel, setDraft, setNotice } = useManualAutoRunStore();
   const validate = useMutation({ mutationFn: () => validateManualAutoRunDraft(projectId, draft) });
   const start = useMutation({
-    mutationFn: () => startManualAutoRunDraft(userId, projectId, runId, draft),
+    mutationFn: () => startManualAutoRunDraft(projectId, runId, draft),
     onSuccess: () => {
       setNotice({ tone: "success", message: "Manual Auto Run started" });
       closePanel();
@@ -23,7 +22,7 @@ export function AutoRunPanel({ userId, projectId, runId }: AutoRunPanelProps) {
   });
   const control = useMutation({
     mutationFn: (action: "pause" | "resume" | "retry" | "cancel") =>
-      controlManualAutoRunDraft(userId, projectId, draft.autoRunId, action)
+      controlManualAutoRunDraft(projectId, draft.autoRunId, action)
   });
 
   if (!panelOpen) {

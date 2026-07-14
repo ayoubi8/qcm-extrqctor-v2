@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../config/apiBaseUrl";
+import { requestJson } from "../../api/client";
 import type { Step3CorrectionRunRequest } from "./types";
 
 function toApiConfig(request: Step3CorrectionRunRequest) {
@@ -14,14 +14,10 @@ function toApiConfig(request: Step3CorrectionRunRequest) {
 }
 
 export async function runStep3Correction(request: Step3CorrectionRunRequest, correlationId: string) {
-  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/steps/step3-correction/run`, {
+  return requestJson(`/projects/${request.projectId}/steps/step3-correction/run`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-correlation-id": correlationId
-    },
+    headers: { "x-correlation-id": correlationId },
     body: JSON.stringify({
-      user_id: request.userId,
       run_id: request.runId,
       step2_artifact_ids: request.step2ArtifactIds,
       qcms: request.qcms,
@@ -34,8 +30,4 @@ export async function runStep3Correction(request: Step3CorrectionRunRequest, cor
       idempotency_key: request.idempotencyKey
     })
   });
-  if (!response.ok) {
-    throw new Error(`Step 3 correction run request failed with ${response.status}`);
-  }
-  return response.json();
 }

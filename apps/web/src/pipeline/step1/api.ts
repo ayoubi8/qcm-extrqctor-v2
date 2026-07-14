@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../config/apiBaseUrl";
+import { requestJson } from "../../api/client";
 import type { Step1RunRequest } from "./types";
 
 function toApiConfig(request: Step1RunRequest) {
@@ -13,14 +13,10 @@ function toApiConfig(request: Step1RunRequest) {
 }
 
 export async function runStep1(request: Step1RunRequest, correlationId: string) {
-  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/step1/run`, {
+  return requestJson(`/projects/${request.projectId}/step1/run`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-correlation-id": correlationId
-    },
+    headers: { "x-correlation-id": correlationId },
     body: JSON.stringify({
-      user_id: request.userId,
       run_id: request.runId,
       source_file_id: request.sourceFileId,
       source_filename: request.sourceFilename,
@@ -28,8 +24,4 @@ export async function runStep1(request: Step1RunRequest, correlationId: string) 
       config: toApiConfig(request)
     })
   });
-  if (!response.ok) {
-    throw new Error(`Step 1 run request failed with ${response.status}`);
-  }
-  return response.json();
 }

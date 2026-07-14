@@ -109,7 +109,71 @@ cd /opt/qcm-extractor-api/current
 sudo -u qcm git pull origin main
 sudo bash infra/vps/deploy_ubuntu.sh
 sudo systemctl restart qcm-extractor-api
+sudo systemctl restart qcm-extractor-worker
 curl http://127.0.0.1:8000/health
+```
+
+## Worker Service (durable task executor)
+
+The worker dequeues tasks from the same Supabase queue as the API and runs Step 1-4,
+Manual Auto Run, and AI Auto Run handlers. It must run as a supervised long-running
+process alongside the API.
+
+Create `/etc/systemd/system/qcm-extractor-worker.service`:
+
+```ini
+[Unit]
+Description=QCM Extractor Worker
+After=network-online.target qcm-extractor-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qcm
+WorkingDirectory=/opt/qcm-extractor-api/current
+EnvironmentFile=/etc/qcm-extractor-api.env
+ExecStart=/opt/qcm-extractor-api/current/.venv/bin/python -m qcm_worker.main
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/qcm-extractor/worker.log
+StandardError=append:/var/log/qcm-extractor/worker.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`/etc/qcm-extractor-api.env` must include at least:
+
+```env
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+QCM_WORKER_ID=azure-worker-1
+QCM_LOG_LEVEL=INFO
+```
+
+Enable and start:
+
+```bash
+sudo mkdir -p /var/log/qcm-extractor
+sudo chown qcm:qcm /var/log/qcm-extractor
+sudo systemctl daemon-reload
+sudo systemctl enable --now qcm-extractor-worker
+sudo systemctl status qcm-extractor-worker
+sudo tail -f /var/log/qcm-extractor/worker.log
+```
+
+## Database Migrations (Supabase)
+
+Apply migrations `0001`-`0004` in the Supabase Dashboard SQL editor (they are idempotent).
+Phase B additionally requires `0005_task_kind_aliases.sql` (adds `step2_orchestrate`,
+`manual_autorun`, `ai_autorun` to the `public.task_kind` enum) so Step 2 / Auto Run tasks
+can be persisted. Run each `migrations/*.sql` file's contents in the Supabase SQL editor.
+
+```sql
+alter type public.task_kind add value if not exists 'step2_orchestrate';
+alter type public.task_kind add value if not exists 'manual_autorun';
+alter type public.task_kind add value if not exists 'ai_autorun';
 ```
 
 ## Frontend Wiring

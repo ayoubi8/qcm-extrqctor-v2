@@ -1,23 +1,30 @@
 """Persistent terminal replay API route factory."""
 
+from qcm_domain.auth import UserContext
+
 try:
-    from fastapi import APIRouter, HTTPException, Query, status
+    from fastapi import APIRouter, Depends, HTTPException, Query, status
 except ModuleNotFoundError:  # pragma: no cover
     APIRouter = None
 
 
-def create_terminal_router(task_service=None):
+def create_terminal_router(task_service=None, current_user=None):
     if APIRouter is None:
         return None
 
     router = APIRouter(prefix="/projects/{project_id}/terminal", tags=["terminal"])
 
     @router.get("")
-    def terminal_events(project_id: str, user_id: str, after_sequence: int | None = None, limit: int = Query(default=100, ge=1, le=500)):
+    def terminal_events(
+        project_id: str,
+        user: UserContext = Depends(current_user),
+        after_sequence: int | None = None,
+        limit: int = Query(default=100, ge=1, le=500),
+    ):
         if task_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Terminal unavailable")
         return task_service.terminal_page(
-            user_id=user_id,
+            user_id=user.user_id,
             project_id=project_id,
             after_sequence=after_sequence,
             limit=limit,

@@ -3,8 +3,7 @@ import { fetchTerminalPage as fetchTerminalPageFromClient } from "../api/client"
 
 export async function fetchTerminalPage(
   projectId: string,
-  userId: string,
   afterSequence?: number | null
 ): Promise<TerminalPage> {
-  return fetchTerminalPageFromClient(projectId, userId, afterSequence);
+  return fetchTerminalPageFromClient(projectId, afterSequence);
 }

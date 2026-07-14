@@ -5,16 +5,15 @@ import { controlAiAutoRunDraft, startAiAutoRunDraft } from "./api";
 import { useAiAutoRunStore } from "./aiAutoRunStore";
 
 interface AiAutoRunWindowProps {
-  userId: string;
   projectId: string;
   runId: string;
 }
 
-export function AiAutoRunWindow({ userId, projectId, runId }: AiAutoRunWindowProps) {
+export function AiAutoRunWindow({ projectId, runId }: AiAutoRunWindowProps) {
   const { window, draft, closeWindow, toggleMinimized, setDraft } = useAiAutoRunStore();
-  const start = useMutation({ mutationFn: () => startAiAutoRunDraft(userId, projectId, runId, draft) });
+  const start = useMutation({ mutationFn: () => startAiAutoRunDraft(projectId, runId, draft) });
   const action = useMutation({
-    mutationFn: (next: "retry" | "cancel" | "continue") => controlAiAutoRunDraft(userId, projectId, draft.aiRunId, next)
+    mutationFn: (next: "retry" | "cancel" | "continue") => controlAiAutoRunDraft(projectId, draft.aiRunId, next)
   });
 
   if (!window.open) {

@@ -10,7 +10,6 @@ export interface Step1Config {
 }
 
 export interface Step1RunRequest {
-  userId: string;
   projectId: string;
   runId: string;
   sourceFileId: string;

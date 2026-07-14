@@ -52,7 +52,6 @@ export function ConfigPanel({ activeStepId, context, onRunStep }: ConfigPanelPro
 
   const runPayload = useMemo(
     () => ({
-      user_id: context.userId,
       project_id: context.projectId,
       run_id: context.runId,
       source_artifact_ids: context.sourceArtifactIds

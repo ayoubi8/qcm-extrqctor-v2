@@ -33,6 +33,12 @@ class InMemoryTaskRepository:
     def get_task(self, task_id: str) -> Task:
         return self.tasks[task_id]
 
+    def list_tasks(self, *, user_id: str, project_id: str) -> list[Task]:
+        return [
+            task for task in self.tasks.values()
+            if task.user_id == user_id and task.project_id == project_id
+        ]
+
     def update_task(self, task: Task) -> Task:
         self.tasks[task.task_id] = task
         return task

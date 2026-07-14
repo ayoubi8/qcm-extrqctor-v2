@@ -18,6 +18,7 @@ class FoundationStructureTest(unittest.TestCase):
                 "0002_runs_tasks_artifacts.sql",
                 "0003_step_specific.sql",
                 "0004_legacy_import_validation.sql",
+                "0005_task_kind_aliases.sql",
             ],
         )
 

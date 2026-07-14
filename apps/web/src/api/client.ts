@@ -2,6 +2,65 @@ import type { TerminalPage } from "../terminal/types";
 import { API_BASE_URL } from "../config/apiBaseUrl";
 
 const BASE_URL = API_BASE_URL;
+const ACCESS_KEY = "qcm_access_token";
+
+function accessToken(): string | null {
+  try {
+    return localStorage.getItem(ACCESS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Clear the local session and force re-authentication on 401. */
+export function clearAuthSession(): void {
+  try {
+    localStorage.removeItem("qcm_profile");
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem("qcm_refresh_token");
+  } catch {
+    // ignore storage failures
+  }
+  if (typeof window !== "undefined") {
+    window.location.reload();
+  }
+}
+
+function isAuthPath(path: string): boolean {
+  return path.startsWith("/auth/");
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...((init?.headers as Record<string, string>) ?? {})
+  };
+  if (!isAuthPath(path)) {
+    const token = accessToken();
+    if (token) {
+      headers["authorization"] = `Bearer ${token}`;
+    }
+  }
+  const response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  if (response.status === 401 && !isAuthPath(path)) {
+    clearAuthSession();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  if (!response.ok) {
+    const detail = await responseMessage(response);
+    throw new Error(detail || `Request failed with ${response.status}: ${path}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function responseMessage(response: Response): Promise<string | null> {
+  try {
+    const payload = (await response.json()) as { detail?: string };
+    return payload.detail ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export interface ProjectSummary {
   project_id: string;
@@ -12,13 +71,11 @@ export interface ProjectSummary {
 }
 
 export interface ProjectCreateRequest {
-  userId: string;
   name: string;
   idempotencyKey: string;
 }
 
 export interface UploadInitRequest {
-  userId: string;
   projectId: string;
   filename: string;
   contentType: string;
@@ -72,7 +129,6 @@ export interface ProjectSnapshot {
 }
 
 export interface TaskCreateRequest {
-  userId: string;
   projectId: string;
   runId: string;
   kind: string;
@@ -97,7 +153,6 @@ export interface ManualAutoRunSnapshot {
 }
 
 export interface ManualAutoRunStartRequest {
-  userId: string;
   projectId: string;
   runId: string;
   autoRunId: string;
@@ -112,7 +167,6 @@ export interface AiAutoRunPageInput {
 }
 
 export interface AiAutoRunStartRequest {
-  userId: string;
   projectId: string;
   runId: string;
   aiRunId: string;
@@ -126,26 +180,11 @@ export interface AiAutoRunStartRequest {
   idempotencyKey: string;
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {})
-    }
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed with ${response.status}: ${path}`);
-  }
-  return response.json() as Promise<T>;
-}
-
 export function createProject(request: ProjectCreateRequest, correlationId: string) {
   return requestJson<ProjectSummary>("/projects", {
     method: "POST",
     headers: { "x-correlation-id": correlationId },
     body: JSON.stringify({
-      user_id: request.userId,
       name: request.name,
       idempotency_key: request.idempotencyKey
     })
@@ -156,7 +195,6 @@ export function initializeUpload(request: UploadInitRequest) {
   return requestJson<UploadInitResponse>("/uploads/init", {
     method: "POST",
     body: JSON.stringify({
-      user_id: request.userId,
       project_id: request.projectId,
       filename: request.filename,
       content_type: request.contentType,
@@ -171,7 +209,6 @@ export function createTask(request: TaskCreateRequest, correlationId: string) {
     method: "POST",
     headers: { "x-correlation-id": correlationId },
     body: JSON.stringify({
-      user_id: request.userId,
       project_id: request.projectId,
       run_id: request.runId,
       kind: request.kind,
@@ -182,20 +219,20 @@ export function createTask(request: TaskCreateRequest, correlationId: string) {
   });
 }
 
-export function cancelTask(taskId: string, actorUserId: string, correlationId: string) {
+export function cancelTask(taskId: string, correlationId: string) {
   return requestJson<TaskSummary>(`/tasks/${taskId}/cancel`, {
     method: "POST",
-    headers: { "x-correlation-id": correlationId },
-    body: JSON.stringify({ actor_user_id: actorUserId })
+    headers: { "x-correlation-id": correlationId }
   });
 }
 
-export function fetchTerminalPage(projectId: string, userId: string, afterSequence?: number | null) {
-  const params = new URLSearchParams({ user_id: userId });
+export function fetchTerminalPage(projectId: string, afterSequence?: number | null) {
+  const params = new URLSearchParams();
   if (afterSequence) {
     params.set("after_sequence", String(afterSequence));
   }
-  return requestJson<TerminalPage>(`/projects/${projectId}/terminal?${params.toString()}`);
+  const query = params.toString();
+  return requestJson<TerminalPage>(`/projects/${projectId}/terminal${query ? `?${query}` : ""}`);
 }
 
 export function fetchSignedUrl(artifactVersionId: string, correlationId: string, expiresInSeconds = 900) {
@@ -205,9 +242,8 @@ export function fetchSignedUrl(artifactVersionId: string, correlationId: string,
   );
 }
 
-export function fetchProjectSnapshot(projectId: string, userId: string) {
-  const params = new URLSearchParams({ user_id: userId });
-  return requestJson<ProjectSnapshot>(`/projects/${projectId}/snapshot?${params.toString()}`);
+export function fetchProjectSnapshot(projectId: string) {
+  return requestJson<ProjectSnapshot>(`/projects/${projectId}/snapshot`);
 }
 
 export function validateManualAutoRun(projectId: string, snapshot: ManualAutoRunSnapshot) {
@@ -224,7 +260,6 @@ export function startManualAutoRun(request: ManualAutoRunStartRequest, correlati
       method: "POST",
       headers: { "x-correlation-id": correlationId },
       body: JSON.stringify({
-        user_id: request.userId,
         run_id: request.runId,
         auto_run_id: request.autoRunId,
         snapshot: request.snapshot,
@@ -238,13 +273,11 @@ export function controlManualAutoRun(
   projectId: string,
   autoRunId: string,
   action: "pause" | "resume" | "retry" | "cancel",
-  userId: string,
   correlationId: string
 ) {
   return requestJson<{ auto_run_id: string; status: string }>(`/projects/${projectId}/manual-autoruns/${autoRunId}/${action}`, {
     method: "POST",
-    headers: { "x-correlation-id": correlationId },
-    body: JSON.stringify({ user_id: userId })
+    headers: { "x-correlation-id": correlationId }
   });
 }
 
@@ -255,7 +288,6 @@ export function startAiAutoRun(request: AiAutoRunStartRequest, correlationId: st
       method: "POST",
       headers: { "x-correlation-id": correlationId },
       body: JSON.stringify({
-        user_id: request.userId,
         run_id: request.runId,
         ai_run_id: request.aiRunId,
         pages: request.pages,
@@ -271,12 +303,18 @@ export function actionAiAutoRun(
   projectId: string,
   aiRunId: string,
   action: "retry" | "cancel" | "continue",
-  userId: string,
   correlationId: string
 ) {
   return requestJson<{ ai_run_id: string; status: string }>(`/projects/${projectId}/ai-autoruns/${aiRunId}/${action}`, {
     method: "POST",
-    headers: { "x-correlation-id": correlationId },
-    body: JSON.stringify({ user_id: userId })
+    headers: { "x-correlation-id": correlationId }
   });
 }
+
+export function listReferenceDbs() {
+  return requestJson<{ reference_db_id: string; user_id: string; name: string; qcm_count: number; created_at: string }[]>(
+    `/reference-dbs`
+  );
+}
+
+export { requestJson };

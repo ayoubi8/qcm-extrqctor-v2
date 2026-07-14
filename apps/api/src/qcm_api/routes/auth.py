@@ -28,6 +28,8 @@ def create_auth_router(auth_provider=None):
             return jsonable_encoder(auth_provider.sign_in(request, correlation_id=x_correlation_id))
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc) or "Login failed") from exc
 
@@ -44,6 +46,8 @@ def create_auth_router(auth_provider=None):
             return jsonable_encoder(auth_provider.sign_up(request, correlation_id=x_correlation_id))
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc) or "Registration failed") from exc
 

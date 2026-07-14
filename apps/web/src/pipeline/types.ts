@@ -14,7 +14,6 @@ export interface PipelineStepState {
 }
 
 export interface PipelineRunContext {
-  userId: string;
   projectId: string;
   runId: string;
   sourceArtifactIds: string[];

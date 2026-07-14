@@ -1,18 +1,19 @@
 """AI Auto Run API route factory."""
 
+from qcm_domain.auth import UserContext
 from qcm_shared.ai_autorun_contracts import AiAutoRunAction, AiAutoRunActionCommand, AiAutoRunPageInput, AiAutoRunStartCommand
 from qcm_shared.provider_contracts import ModelSelection, ProviderKey
 
 try:
-    from fastapi import APIRouter, Header, HTTPException, status
+    from fastapi import APIRouter, Depends, Header, HTTPException, status
 except ModuleNotFoundError:  # pragma: no cover
     APIRouter = None
 
 
-def _command(project_id: str, payload: dict, correlation_id: str) -> AiAutoRunStartCommand:
+def _command(project_id: str, payload: dict, correlation_id: str, *, user_id: str) -> AiAutoRunStartCommand:
     model = payload.get("model_selection") or {}
     return AiAutoRunStartCommand(
-        user_id=payload.get("user_id", ""),
+        user_id=user_id,
         project_id=project_id,
         run_id=payload.get("run_id", ""),
         ai_run_id=payload.get("ai_run_id", ""),
@@ -35,18 +36,18 @@ def _command(project_id: str, payload: dict, correlation_id: str) -> AiAutoRunSt
     )
 
 
-def create_ai_autorun_router(ai_autorun_service=None):
+def create_ai_autorun_router(ai_autorun_service=None, current_user=None):
     if APIRouter is None:
         return None
 
     router = APIRouter(prefix="/projects/{project_id}/ai-autoruns", tags=["ai-autorun"])
 
     @router.post("")
-    def start_ai_autorun(project_id: str, payload: dict, x_correlation_id: str = Header(default="missing-correlation-id")):
+    def start_ai_autorun(project_id: str, payload: dict, user: UserContext = Depends(current_user), x_correlation_id: str = Header(default="missing-correlation-id")):
         if ai_autorun_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Auto Run unavailable")
         try:
-            return ai_autorun_service.start(_command(project_id, payload, x_correlation_id))
+            return ai_autorun_service.start(_command(project_id, payload, x_correlation_id, user_id=user.user_id))
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
@@ -56,13 +57,14 @@ def create_ai_autorun_router(ai_autorun_service=None):
         ai_run_id: str,
         action: AiAutoRunAction,
         payload: dict,
+        user: UserContext = Depends(current_user),
         x_correlation_id: str = Header(default="missing-correlation-id"),
     ):
         if ai_autorun_service is None:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Auto Run unavailable")
         return ai_autorun_service.action(
             AiAutoRunActionCommand(
-                user_id=payload.get("user_id", ""),
+                user_id=user.user_id,
                 project_id=project_id,
                 ai_run_id=ai_run_id,
                 action=action,

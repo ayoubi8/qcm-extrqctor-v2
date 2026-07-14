@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../config/apiBaseUrl";
+import { requestJson } from "../../api/client";
 import type { Step2RunRequest } from "./types";
 
 function toApiConfig(request: Step2RunRequest) {
@@ -22,14 +22,10 @@ function toApiConfig(request: Step2RunRequest) {
 }
 
 export async function runCombinedStep2(request: Step2RunRequest, correlationId: string) {
-  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/steps/step2/run`, {
+  return requestJson(`/projects/${request.projectId}/steps/step2/run`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-correlation-id": correlationId
-    },
+    headers: { "x-correlation-id": correlationId },
     body: JSON.stringify({
-      user_id: request.userId,
       run_id: request.runId,
       step1_artifact_ids: request.step1ArtifactIds,
       pages: request.pages.map((page) => ({
@@ -41,8 +37,4 @@ export async function runCombinedStep2(request: Step2RunRequest, correlationId: 
       idempotency_key: request.idempotencyKey
     })
   });
-  if (!response.ok) {
-    throw new Error(`Combined Step 2 run request failed with ${response.status}`);
-  }
-  return response.json();
 }
