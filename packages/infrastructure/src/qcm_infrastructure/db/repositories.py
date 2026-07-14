@@ -283,7 +283,8 @@ class SupabaseTaskRepository:
 
     def claim_next(self, request: TaskClaimRequest, *, now: datetime) -> TaskClaim | None:
         row = self.client.rpc("claim_next_task", {"p_worker_id": request.worker_id})
-        if not row:
+        # PostgREST returns an all-NULL row (not empty) when the RPC finds no task.
+        if not row or row.get("task_id") is None:
             return None
         task = _task_from_row(row)
         if request.supported_kinds and task.kind not in request.supported_kinds:
