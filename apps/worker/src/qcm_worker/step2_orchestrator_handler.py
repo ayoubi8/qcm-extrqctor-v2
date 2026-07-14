@@ -1,8 +1,10 @@
 """Worker handler for the combined visible Step 2 orchestrator."""
 
+import os
 from typing import Any
 
 from qcm_application.steps.step2_orchestrator import InMemoryStep2ArtifactSink, Step2Orchestrator
+from qcm_application.steps.step2_pages import RuleBasedPageQcmExtractor, Step2PageCycleService
 from qcm_shared.contracts import QualityStatus, TaskStatus
 from qcm_shared.step2_contracts import (
     STEP2_TASK_KIND,
@@ -12,6 +14,13 @@ from qcm_shared.step2_contracts import (
     Step2SourcePage,
 )
 from qcm_worker.handlers import TASK_HANDLERS, register_handler
+
+try:
+    from qcm_infrastructure.llm.openrouter_adapter import build_openrouter_adapter_from_env
+    from qcm_infrastructure.llm.llm_page_qcm_extractor import LlmPageQcmExtractor
+    _LLM_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _LLM_AVAILABLE = False
 
 
 def _config_from_payload(payload: dict[str, Any]) -> Step2Config:
@@ -29,7 +38,7 @@ def _config_from_payload(payload: dict[str, Any]) -> Step2Config:
         output_format=raw.get("output_format", "json+xlsx"),
         model=Step2ModelConfig(
             provider=model.get("provider", "openrouter"),
-            primary_model_id=model.get("primary_model_id", "configured-by-admin"),
+            primary_model_id=model.get("primary_model_id", "openai/gpt-4o-mini"),
             fallback_model_ids=tuple(model.get("fallback_model_ids") or ()),
         ),
         resume_from_cycle=raw.get("resume_from_cycle"),
@@ -49,21 +58,38 @@ def _pages_from_payload(payload: dict[str, Any]) -> tuple[Step2SourcePage, ...]:
     return tuple(pages)
 
 
+def _build_page_extractor(config: Step2Config):
+    """Build an LLM-backed QCM extractor if OpenRouter is available, else rule-based."""
+    if not _LLM_AVAILABLE:
+        return RuleBasedPageQcmExtractor()
+
+    adapter = build_openrouter_adapter_from_env()
+    if adapter is None:
+        return RuleBasedPageQcmExtractor()
+
+    model_id = config.model.primary_model_id if config.model.primary_model_id != "configured-by-admin" else "openai/gpt-4o-mini"
+    return LlmPageQcmExtractor(adapter, model_id=model_id)
+
+
 def step2_orchestrator_handler(payload: dict[str, Any]) -> dict[str, Any]:
     sink = InMemoryStep2ArtifactSink()
+    config = _config_from_payload(payload)
     command = Step2RunCommand(
         user_id=payload.get("user_id", ""),
         project_id=payload.get("project_id", ""),
         run_id=payload.get("run_id", ""),
         step1_artifact_ids=tuple(payload.get("step1_artifact_ids") or ()),
         pages=_pages_from_payload(payload),
-        config=_config_from_payload(payload),
+        config=config,
         previous_cycle_data=dict(payload.get("previous_cycle_data") or {}),
         task_id=payload.get("task_id"),
         attempt_id=payload.get("attempt_id"),
         correlation_id=payload.get("correlation_id"),
     )
-    result = Step2Orchestrator(artifact_sink=sink).run(command)
+    page_extractor = _build_page_extractor(config)
+    page_cycle_service = Step2PageCycleService(extractor=page_extractor)
+
+    result = Step2Orchestrator(artifact_sink=sink, page_cycle_service=page_cycle_service).run(command)
     status = (
         TaskStatus.COMPLETED_WITH_WARNINGS.value
         if result.quality.status in {QualityStatus.PASSED_WITH_WARNINGS, QualityStatus.MANUAL_REVIEW_REQUIRED}

@@ -131,10 +131,10 @@ class BackendFoundationTest(unittest.TestCase):
                 }
 
         class Client:
-            def post(self, endpoint, json):
+            def post(self, endpoint, json=None, headers=None, timeout=None):
                 return Response()
 
-        adapter = OpenRouterAdapter(OpenRouterSettings(api_key_ref="secret:openrouter"), Client())
+        adapter = OpenRouterAdapter(OpenRouterSettings(api_key="secret:openrouter"), Client())
         response = adapter.complete_json(
             request=__import__("qcm_shared.provider_contracts", fromlist=["ModelCallRequest"]).ModelCallRequest(
                 provider=ProviderKey.OPENROUTER,

@@ -15,10 +15,15 @@ from qcm_shared.provider_contracts import (
 
 @dataclass(frozen=True, slots=True)
 class OpenRouterSettings:
-    api_key_ref: str
-    site_url: str = "https://local.dev"
+    api_key: str
+    site_url: str = "https://20.5.176.133.sslip.io"
     site_name: str = "QCM Extractor"
     endpoint: str = "https://openrouter.ai/api/v1/chat/completions"
+    timeout: float = 60.0
+
+    def __post_init__(self) -> None:
+        if not self.api_key:
+            raise ValueError("OpenRouterSettings requires api_key")
 
 
 class OpenRouterAdapter:
@@ -26,7 +31,15 @@ class OpenRouterAdapter:
 
     def __init__(self, settings: OpenRouterSettings, http_client: Any | None = None) -> None:
         self.settings = settings
-        self.http_client = http_client
+        self.http_client = http_client or _build_default_client(settings)
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.settings.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": self.settings.site_url,
+            "X-Title": self.settings.site_name,
+        }
 
     def complete_json(self, request: ModelCallRequest) -> ModelCallResponse:
         if self.http_client is None:
@@ -43,7 +56,7 @@ class OpenRouterAdapter:
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
         }
-        response = self.http_client.post(self.settings.endpoint, json=payload)
+        response = self.http_client.post(self.settings.endpoint, json=payload, headers=self._headers(), timeout=self.settings.timeout)
         status_code = getattr(response, "status_code", 200)
         if status_code in {429, 500, 502, 503}:
             raise DomainError(
@@ -84,3 +97,21 @@ def _extract_json(content: str) -> dict[str, Any] | None:
     if not match:
         return None
     return json.loads(match.group(0))
+
+
+def _build_default_client(settings: OpenRouterSettings):
+    """Build an httpx.Client if httpx is available; return None otherwise."""
+    try:
+        import httpx
+        return httpx.Client(timeout=settings.timeout)
+    except ImportError:  # pragma: no cover
+        return None
+
+
+def build_openrouter_adapter_from_env() -> "OpenRouterAdapter | None":
+    """Build an OpenRouterAdapter from OPENROUTER_API_KEY env var, or None if absent."""
+    import os
+    key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        return None
+    return OpenRouterAdapter(OpenRouterSettings(api_key=key))

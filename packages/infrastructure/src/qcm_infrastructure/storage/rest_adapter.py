@@ -117,3 +117,12 @@ class SupabaseStorageRestAdapter:
             if response.status_code < 400:
                 deleted += 1
         return deleted
+
+    def get_object(self, storage_key: str) -> bytes:
+        """Download object bytes from Supabase Storage (service-role auth)."""
+        if not storage_key:
+            raise ValueError("storage_key is required")
+        url = f"{self._base}/storage/v1/object/{self._bucket}/{storage_key}"
+        response = httpx.get(url, headers=self._headers(), timeout=self._timeout)
+        self._raise(response, operation=f"get {storage_key}")
+        return response.content
