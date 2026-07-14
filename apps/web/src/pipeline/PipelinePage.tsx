@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createProject, fetchProjectSnapshot, fetchSignedUrl, initializeUpload } from "../api/client";
 import { AiAutoRunWindow, useAiAutoRunStore } from "../ai_autorun";
@@ -24,6 +24,8 @@ import type { ProjectDraft } from "../projects/types";
 
 interface PipelinePageProps {
   userId: string;
+  projectId: string;
+  onProjectChange: (projectId: string) => void;
 }
 
 const demoHistory: ProjectHistoryItem[] = [
@@ -62,9 +64,8 @@ const demoArtifacts: ArtifactVersionItem[] = [
   }
 ];
 
-export function PipelinePage({ userId }: PipelinePageProps) {
+export function PipelinePage({ userId, projectId, onProjectChange }: PipelinePageProps) {
   const queryClient = useQueryClient();
-  const [projectId, setProjectId] = useState("demo-project");
   const { notice, openPanel } = useManualAutoRunStore();
   const openAiWindow = useAiAutoRunStore((state) => state.openWindow);
   const { activeStepId, selectedRunId, selectedArtifactVersionId, setActiveStep, setSelectedRun, setSelectedArtifactVersion } = usePipelineUiStore();
@@ -102,7 +103,7 @@ export function PipelinePage({ userId }: PipelinePageProps) {
       return created;
     },
     onSuccess: async (created) => {
-      setProjectId(created.project_id);
+      onProjectChange(created.project_id);
       setSelectedRun("demo-run");
       await queryClient.invalidateQueries({ queryKey: ["project-snapshot", created.project_id, userId] });
       await queryClient.invalidateQueries({ queryKey: ["terminal", created.project_id, userId] });
@@ -219,7 +220,7 @@ export function PipelinePage({ userId }: PipelinePageProps) {
       <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
         <div className="grid content-start gap-4">
           <ProjectLauncher onCreate={(draft) => createProjectMutation.mutate(draft)} />
-          <HistoryRestorePanel items={demoHistory} selectedProjectId={projectId} onRestore={setProjectId} />
+          <HistoryRestorePanel items={demoHistory} selectedProjectId={projectId} onRestore={onProjectChange} />
         </div>
 
         <div className="grid content-start gap-4">

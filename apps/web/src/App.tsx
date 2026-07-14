@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AuthGate } from "./auth/AuthGate";
 import { useAuthStore } from "./auth/authStore";
 import { AppShell } from "./components/shell";
@@ -22,11 +23,11 @@ const terminalEvents: TerminalEvent[] = [
 function AuthenticatedApp() {
   const profile = useAuthStore((state) => state.profile);
   const userId = profile?.user_id ?? "preview";
-  const projectId = "demo-project";
+  const [projectId, setProjectId] = useState("demo-project");
 
   return (
     <AppShell terminal={<TerminalPanel projectId={projectId} userId={userId} fallbackEvents={terminalEvents} />}>
-      <PipelinePage userId={userId} />
+      <PipelinePage userId={userId} projectId={projectId} onProjectChange={setProjectId} />
     </AppShell>
   );
 }
