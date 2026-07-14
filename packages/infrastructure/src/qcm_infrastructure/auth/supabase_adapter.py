@@ -64,13 +64,20 @@ class SupabaseAuthAdapter:
             use_service_role=False,
             correlation_id=correlation_id,
         )
-        user = response.get("user") or {}
+        user = self._user_from_auth_response(response)
         profile = self._ensure_profile(
             user_id=str(user.get("id") or ""),
             email=str(user.get("email") or request.email).lower(),
             display_name=request.display_name or self._metadata_display_name(user),
             correlation_id=correlation_id,
         )
+        if not response.get("access_token"):
+            response = self._post(
+                "/auth/v1/token?grant_type=password",
+                {"email": request.email.lower(), "password": request.password},
+                use_service_role=False,
+                correlation_id=correlation_id,
+            )
         return self._session_from_response(response, profile)
 
     def verify_access_token(self, token: str, *, correlation_id: str) -> UserContext:
@@ -275,7 +282,7 @@ class SupabaseAuthAdapter:
     def _session_from_response(self, response: dict[str, Any], profile: Profile) -> AuthenticatedSession:
         access_token = str(response.get("access_token") or "")
         if not access_token:
-            raise ValueError("Supabase auth response did not include an access token")
+            raise ValueError("Registration created. Confirm the email address, then sign in.")
         return AuthenticatedSession(
             profile=profile,
             tokens=SessionTokens(
@@ -290,3 +297,11 @@ class SupabaseAuthAdapter:
         metadata = user.get("user_metadata") or {}
         display_name = metadata.get("display_name") or metadata.get("name")
         return str(display_name) if display_name else None
+
+    def _user_from_auth_response(self, response: dict[str, Any]) -> dict[str, Any]:
+        nested = response.get("user")
+        if isinstance(nested, dict):
+            return nested
+        if response.get("id") or response.get("email"):
+            return response
+        return {}
