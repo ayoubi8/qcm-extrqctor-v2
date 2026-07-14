@@ -26,6 +26,11 @@ REQUIRED_PATHS = [
     "infra/supabase/storage_policies.sql",
     "infra/hf-space/Dockerfile",
     "infra/hf-space/README.md",
+    "infra/vps/qcm-extractor-api.env.example",
+    "infra/vps/qcm-extractor-api.service",
+    "infra/vps/nginx.qcm-extractor-api.conf",
+    "infra/vps/deploy_ubuntu.sh",
+    "docs/runbooks/vps_ubuntu_backend.md",
     "app.py",
     "requirements.txt",
     "docs/runbooks/provider_limits_snapshot.md",
@@ -70,9 +75,11 @@ def main() -> int:
     assert "qcm_api.main:app" in read("infra/hf-space/Dockerfile")
     assert "qcm_api.main import app" in read("app.py")
     assert "uvicorn.run(app" in read("app.py")
-    assert "7860" in read("app.py")
+    assert "8000" in read("app.py")
     assert "fastapi" in read("requirements.txt")
     assert "gradio" not in read("requirements.txt")
+    assert "qcm-extractor-api.service" in read("infra/vps/deploy_ubuntu.sh")
+    assert "proxy_pass http://127.0.0.1:8000" in read("infra/vps/nginx.qcm-extractor-api.conf")
 
     warnings = evaluate_budget(
         UsageSample(source_file_bytes=60_000_000, request_body_bytes=5_000_000),

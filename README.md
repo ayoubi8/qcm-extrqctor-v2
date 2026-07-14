@@ -67,9 +67,9 @@ tests/        foundation, contract, and boundary tests
 tools/        local verification helpers
 ```
 
-## Vercel Backend
+## Ubuntu VPS Backend
 
-Use a second Vercel project for the FastAPI backend with the repository root as its root directory. The root `app.py` exposes the ASGI `app` that Vercel loads for Python functions.
+Use `docs/runbooks/vps_ubuntu_backend.md` to run the FastAPI backend as a systemd service behind Nginx on an Ubuntu VPS. The root `app.py` exposes the ASGI `app` and can also run locally with Uvicorn.
 
 ## Local Verification
 

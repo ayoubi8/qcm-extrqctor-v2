@@ -1,0 +1,19 @@
+[Unit]
+Description=QCM Extractor FastAPI backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qcm
+Group=qcm
+WorkingDirectory=/opt/qcm-extractor-api/current
+EnvironmentFile=/etc/qcm-extractor-api.env
+ExecStart=/opt/qcm-extractor-api/current/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
