@@ -28,6 +28,9 @@ def create_step1_router(task_service=None, current_user=None):
             "run_id": run_id,
             "source_file_id": payload.get("source_file_id", ""),
             "source_filename": payload.get("source_filename", "source.pdf"),
+            "source_content": payload.get("source_content", ""),
+            "direct_pages": payload.get("direct_pages") or payload.get("pages"),
+            "ocr_pages": payload.get("ocr_pages"),
             "config": payload.get("config", {}),
         }
         return task_service.create_task(
