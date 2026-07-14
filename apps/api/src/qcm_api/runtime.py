@@ -47,11 +47,12 @@ def _build_supabase_client():
 
 
 class RuntimeProjectService:
-    def __init__(self, project_repo, run_repo, task_repository, terminal_repository) -> None:
+    def __init__(self, project_repo, run_repo, task_repository, terminal_repository, artifact_service=None) -> None:
         self.project_repo = project_repo
         self.run_repo = run_repo
         self.task_repository = task_repository
         self.terminal_repository = terminal_repository
+        self.artifact_service = artifact_service
         self.seeded_projects: set[str] = set()
 
     def create_project(self, command: ProjectCreateCommand) -> ProjectSummary:
@@ -80,7 +81,7 @@ class RuntimeProjectService:
                 for run in runs
             ],
             "tasks": tasks,
-            "artifacts": [],
+            "artifacts": self.artifact_service.list_artifacts(user_id=user_id, project_id=project_id) if self.artifact_service else [],
         }
 
     def _task_summaries(self, *, user_id: str, project_id: str) -> list[dict]:
@@ -118,15 +119,120 @@ class RuntimeProjectService:
 
 
 class RuntimeArtifactService:
+    def __init__(self, storage=None, artifact_repo=None, source_file_repo=None) -> None:
+        self.storage = storage
+        self.artifact_repo = artifact_repo
+        self.source_file_repo = source_file_repo
+
     def initialize_upload(self, request: UploadInitRequest):
         return initialize_upload(request)
 
     def create_signed_url(self, request: SignedUrlRequest) -> SignedUrlResponse:
+        expires = request.expires_in_seconds or 900
+        if self.storage is None:
+            return SignedUrlResponse(
+                artifact_version_id=request.artifact_version_id,
+                signed_url="",
+                expires_in_seconds=expires,
+            )
+        version = self.artifact_repo.get_version_for_signed_url(request.artifact_version_id)
+        if version is None:
+            raise KeyError(request.artifact_version_id)
+        owner = str(version.get("user_id") or "")
+        if owner and owner != request.requester_user_id:
+            from qcm_application.ownership import AuthorizationError
+            raise AuthorizationError("Artifact version does not belong to requester")
+        signed = self.storage.create_signed_url(str(version["storage_key"]), expires)
         return SignedUrlResponse(
             artifact_version_id=request.artifact_version_id,
-            signed_url="",
-            expires_in_seconds=request.expires_in_seconds or 900,
+            signed_url=signed,
+            expires_in_seconds=expires,
         )
+
+    def upload_source_file(
+        self,
+        *,
+        user_id: str,
+        project_id: str,
+        filename: str,
+        content: bytes,
+        content_type: str,
+    ) -> dict:
+        from hashlib import sha256
+        from qcm_domain.artifacts import StoragePathContext, build_storage_key, validate_source_file_size
+        from qcm_shared.contracts import ArtifactType, RetentionPolicy
+
+        validate_source_file_size(len(content))
+        checksum = sha256(content).hexdigest()
+        artifact_id = str(uuid4())
+        context = StoragePathContext(
+            user_id=user_id,
+            project_id=project_id,
+            run_id=None,
+            artifact_type=ArtifactType.SOURCE_PDF,
+            artifact_id=artifact_id,
+            version_number=1,
+            filename=filename,
+        )
+        storage_key = build_storage_key(context)
+        self.storage.put(storage_key, content, content_type)
+        sf = self.source_file_repo.create_source_file(
+            user_id=user_id,
+            project_id=project_id,
+            original_filename=filename,
+            storage_key=storage_key,
+            content_type=content_type,
+            size_bytes=len(content),
+            checksum=checksum,
+        )
+        art = self.artifact_repo.create_artifact(
+            user_id=user_id,
+            project_id=project_id,
+            artifact_type=ArtifactType.SOURCE_PDF.value,
+            name=filename,
+            run_id=None,
+        )
+        ver = self.artifact_repo.create_version(
+            artifact_id=art["artifact_id"],
+            user_id=user_id,
+            project_id=project_id,
+            version_number=1,
+            storage_key=storage_key,
+            content_type=content_type,
+            checksum=checksum,
+            size_bytes=len(content),
+            schema_version="source_pdf.v1",
+            retention_policy=RetentionPolicy.SOURCE_UNTIL_PROJECT_DELETE.value,
+            run_id=None,
+        )
+        return {
+            "source_file_id": sf["source_file_id"],
+            "artifact_id": art["artifact_id"],
+            "artifact_version_id": ver["artifact_version_id"],
+            "storage_key": storage_key,
+            "checksum": checksum,
+            "allowed": True,
+        }
+
+    def list_artifacts(self, *, user_id: str, project_id: str) -> list[dict]:
+        if self.artifact_repo is None:
+            return []
+        rows = self.artifact_repo.list_versions_for_project(user_id=user_id, project_id=project_id)
+        return [
+            {
+                "artifactVersionId": r.get("artifact_version_id"),
+                "artifactId": r.get("artifact_id"),
+                "artifactType": "source_pdf",
+                "filename": "",
+                "contentType": r.get("content_type", ""),
+                "versionNumber": int(r.get("version_number") or 1),
+                "createdAt": r.get("created_at") or "",
+                "sizeBytes": int(r.get("size_bytes") or 0),
+                "checksum": r.get("checksum"),
+                "runId": r.get("run_id"),
+            }
+            for r in rows
+        ]
 
 
 class RuntimeConfigService:
@@ -163,28 +269,43 @@ class RuntimeServices:
         terminal_repository: object
         project_repo: object
         run_repo: object
+        artifact_service: RuntimeArtifactService
         if _supabase_env_present():
             from qcm_infrastructure.db.repositories import (
+                SupabaseArtifactRepository,
                 SupabasePipelineRunRepository,
                 SupabaseProjectRepository,
+                SupabaseSourceFileRepository,
                 SupabaseTaskRepository,
                 SupabaseTerminalRepository,
             )
+            from qcm_infrastructure.storage.rest_adapter import SupabaseStorageRestAdapter
 
             client = _build_supabase_client()
             project_repo = SupabaseProjectRepository(client)
             run_repo = SupabasePipelineRunRepository(client)
             task_repository = SupabaseTaskRepository(client)
             terminal_repository = SupabaseTerminalRepository(client)
+            storage = SupabaseStorageRestAdapter(
+                os.getenv("SUPABASE_URL", ""),
+                os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "",
+                service_role=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+            )
+            artifact_repo = SupabaseArtifactRepository(client)
+            source_file_repo = SupabaseSourceFileRepository(client)
+            artifact_service = RuntimeArtifactService(
+                storage=storage, artifact_repo=artifact_repo, source_file_repo=source_file_repo
+            )
         else:
             project_repo = InMemoryProjectRepository()
             run_repo = InMemoryPipelineRunRepository()
             task_repository = InMemoryTaskRepository()
             terminal_repository = InMemoryTerminalRepository()
+            artifact_service = RuntimeArtifactService()
 
         self.task_service = TaskService(task_repository, terminal_repository)
-        self.project_service = RuntimeProjectService(project_repo, run_repo, task_repository, terminal_repository)
-        self.artifact_service = RuntimeArtifactService()
+        self.project_service = RuntimeProjectService(project_repo, run_repo, task_repository, terminal_repository, artifact_service)
+        self.artifact_service = artifact_service
         self.config_service = RuntimeConfigService()
         self.model_service = RuntimeModelService()
         self.reference_db_service = ReferenceDbService()

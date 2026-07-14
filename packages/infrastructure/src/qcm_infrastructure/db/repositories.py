@@ -2,9 +2,8 @@
 
 Concrete adapters over the Plan 03 schema via the lightweight PostgrestClient. Service-role
 calls bypass RLS; ownership is still enforced by the auth dependency and explicit user_id
-filtering in queries. Reference DB / artifact-version adapters are deferred to Phase C
-(they require the artifacts parent + storage); only the core project/run/task/terminal
-adapters needed for durable data and the worker queue are implemented here.
+filtering in queries. Includes project, pipeline-run, task, terminal, source-file,
+artifact, and artifact-version adapters.
 """
 
 from __future__ import annotations
@@ -366,3 +365,155 @@ class SupabaseTerminalRepository:
         events = [_event_from_row(r) for r in rows]
         next_cursor = events[-1].sequence if events and events[-1].sequence is not None else after_sequence
         return TerminalPage(events=tuple(events), next_cursor=next_cursor)
+
+
+class SupabaseSourceFileRepository:
+    def __init__(self, client: PostgrestClient) -> None:
+        self.client = client
+
+    def create_source_file(
+        self,
+        *,
+        user_id: str,
+        project_id: str,
+        original_filename: str,
+        storage_key: str,
+        content_type: str,
+        size_bytes: int,
+        checksum: str,
+    ) -> dict[str, Any]:
+        row = self.client.insert(
+            "source_files",
+            {
+                "user_id": user_id,
+                "project_id": project_id,
+                "original_filename": original_filename,
+                "storage_key": storage_key,
+                "content_type": content_type,
+                "size_bytes": size_bytes,
+                "checksum": checksum,
+                "status": "uploaded",
+            },
+        )
+        row = row or {}
+        return {
+            "source_file_id": str(row.get("source_file_id") or ""),
+            "storage_key": str(row.get("storage_key") or storage_key),
+            "status": str(row.get("status") or "uploaded"),
+        }
+
+    def get_source_file(self, *, source_file_id: str) -> dict[str, Any] | None:
+        return self.client.select_one(
+            "source_files",
+            columns="source_file_id,user_id,project_id,original_filename,storage_key,content_type,size_bytes,checksum,status",
+            params={"source_file_id": f"eq.{source_file_id}"},
+        )
+
+
+class SupabaseArtifactRepository:
+    def __init__(self, client: PostgrestClient) -> None:
+        self.client = client
+
+    def create_artifact(
+        self,
+        *,
+        user_id: str,
+        project_id: str,
+        artifact_type: str,
+        name: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, Any]:
+        from uuid import uuid4
+
+        row = self.client.insert(
+            "artifacts",
+            {
+                "artifact_id": str(uuid4()),
+                "user_id": user_id,
+                "project_id": project_id,
+                "run_id": run_id,
+                "artifact_type": artifact_type,
+                "name": name,
+                "visibility": "private",
+            },
+        )
+        row = row or {}
+        return {
+            "artifact_id": str(row.get("artifact_id") or ""),
+            "artifact_type": str(row.get("artifact_type") or artifact_type),
+            "name": row.get("name"),
+        }
+
+    def create_version(
+        self,
+        *,
+        artifact_id: str,
+        user_id: str,
+        project_id: str,
+        version_number: int,
+        storage_key: str,
+        content_type: str,
+        checksum: str,
+        size_bytes: int,
+        schema_version: str,
+        retention_policy: str,
+        run_id: str | None = None,
+        source_artifact_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        from uuid import uuid4
+
+        row = self.client.insert(
+            "artifact_versions",
+            {
+                "artifact_version_id": str(uuid4()),
+                "artifact_id": artifact_id,
+                "user_id": user_id,
+                "project_id": project_id,
+                "run_id": run_id,
+                "version_number": version_number,
+                "storage_key": storage_key,
+                "content_type": content_type,
+                "checksum": checksum,
+                "size_bytes": size_bytes,
+                "schema_version": schema_version,
+                "retention_policy": retention_policy,
+                "source_artifact_ids": source_artifact_ids or [],
+            },
+        )
+        row = row or {}
+        version_id = str(row.get("artifact_version_id") or "")
+        # Point the parent's latest_version_id at this new version
+        if version_id:
+            self.client.patch(
+                "artifacts",
+                {"artifact_id": f"eq.{artifact_id}", "user_id": f"eq.{user_id}", "project_id": f"eq.{project_id}"},
+                {"latest_version_id": version_id},
+            )
+        return {
+            "artifact_version_id": version_id,
+            "artifact_id": str(row.get("artifact_id") or artifact_id),
+            "version_number": int(row.get("version_number") or version_number),
+            "storage_key": str(row.get("storage_key") or storage_key),
+            "content_type": str(row.get("content_type") or content_type),
+            "checksum": str(row.get("checksum") or checksum),
+            "size_bytes": int(row.get("size_bytes") or size_bytes),
+            "schema_version": str(row.get("schema_version") or schema_version),
+            "retention_policy": str(row.get("retention_policy") or retention_policy),
+            "created_at": _iso(row.get("created_at")) or "",
+        }
+
+    def get_version_for_signed_url(self, artifact_version_id: str) -> dict[str, Any] | None:
+        return self.client.select_one(
+            "artifact_versions",
+            columns="artifact_version_id,artifact_id,user_id,project_id,run_id,version_number,storage_key,content_type,checksum,size_bytes,schema_version,retention_policy,source_artifact_ids,created_at",
+            params={"artifact_version_id": f"eq.{artifact_version_id}"},
+        )
+
+    def list_versions_for_project(self, *, user_id: str, project_id: str) -> list[dict[str, Any]]:
+        rows = self.client.select(
+            "artifact_versions",
+            columns="artifact_version_id,artifact_id,user_id,project_id,run_id,version_number,storage_key,content_type,checksum,size_bytes,schema_version,created_at",
+            params={"user_id": f"eq.{user_id}", "project_id": f"eq.{project_id}"},
+            order="created_at.desc",
+        )
+        return rows

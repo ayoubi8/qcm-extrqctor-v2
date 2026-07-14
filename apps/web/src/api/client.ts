@@ -62,6 +62,43 @@ async function responseMessage(response: Response): Promise<string | null> {
   }
 }
 
+export interface SourceFileUploadResponse {
+  source_file_id: string;
+  artifact_id: string;
+  artifact_version_id: string;
+  storage_key: string;
+  checksum: string;
+  allowed: boolean;
+}
+
+export async function uploadSourceFile(
+  projectId: string,
+  file: File,
+  correlationId: string
+): Promise<SourceFileUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers: Record<string, string> = { "x-correlation-id": correlationId };
+  const token = accessToken();
+  if (token) {
+    headers["authorization"] = `Bearer ${token}`;
+  }
+  const response = await fetch(`${BASE_URL}/uploads/${projectId}/source-file`, {
+    method: "POST",
+    headers,
+    body: formData
+  });
+  if (response.status === 401) {
+    clearAuthSession();
+    throw new Error("Session expired. Please sign in again.");
+  }
+  if (!response.ok) {
+    const detail = await responseMessage(response);
+    throw new Error(detail || `Upload failed with ${response.status}`);
+  }
+  return response.json() as Promise<SourceFileUploadResponse>;
+}
+
 export interface ProjectSummary {
   project_id: string;
   user_id: string;

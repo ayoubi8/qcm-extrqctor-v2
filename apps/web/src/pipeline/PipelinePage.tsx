@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createProject, fetchProjectSnapshot, fetchSignedUrl, initializeUpload } from "../api/client";
+import { createProject, fetchProjectSnapshot, fetchSignedUrl, initializeUpload, uploadSourceFile } from "../api/client";
 import { AiAutoRunWindow, useAiAutoRunStore } from "../ai_autorun";
 import { AutoRunNotification, AutoRunPanel, useManualAutoRunStore } from "../autorun";
 import { ProjectShell } from "../components/shell";
@@ -96,6 +96,7 @@ export function PipelinePage({ projectId, onProjectChange }: PipelinePageProps) 
           sizeBytes: draft.file.size,
           idempotencyKey: `upload:${created.project_id}:${draft.file.name}:${draft.file.size}`
         });
+        await uploadSourceFile(created.project_id, draft.file, `upload:${Date.now()}`);
       }
       return created;
     },
@@ -230,9 +231,16 @@ export function PipelinePage({ projectId, onProjectChange }: PipelinePageProps) 
           </Card>
           <ResultHub artifacts={artifacts} selectedArtifactVersionId={selectedArtifact?.artifactVersionId ?? null} onSelectArtifact={setSelectedArtifactVersion} />
           <ArtifactViewer artifact={selectedArtifact} onDownload={(artifactVersionId) => signedUrl.mutate(artifactVersionId)} />
-          {signedUrl.data ? (
-            <Card title="Signed URL">
-              <p className="break-all text-xs text-cyan-200">{signedUrl.data.signed_url}</p>
+          {signedUrl.data && signedUrl.data.signed_url ? (
+            <Card title="Download ready">
+              <a
+                href={signedUrl.data.signed_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all text-xs text-cyan-200 underline hover:text-cyan-100"
+              >
+                Open file ({signedUrl.data.expires_in_seconds}s expiry)
+              </a>
             </Card>
           ) : null}
           <Button variant="ghost" onClick={() => snapshot.refetch()}>
