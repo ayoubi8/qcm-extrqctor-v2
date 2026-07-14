@@ -3,6 +3,15 @@ import { API_BASE_URL } from "../config/apiBaseUrl";
 
 const BASE_URL = API_BASE_URL;
 
+async function errorMessage(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { detail?: string };
+    return payload.detail ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function correlationId() {
   return crypto.randomUUID();
 }
@@ -18,7 +27,7 @@ export async function login(email: string, password: string): Promise<AuthSessio
   });
 
   if (!response.ok) {
-    throw new Error("Login failed");
+    throw new Error(await errorMessage(response, "Login failed"));
   }
 
   return response.json() as Promise<AuthSession>;
@@ -35,7 +44,7 @@ export async function register(email: string, password: string, displayName?: st
   });
 
   if (!response.ok) {
-    throw new Error("Registration failed");
+    throw new Error(await errorMessage(response, "Registration failed"));
   }
 
   return response.json() as Promise<AuthSession>;

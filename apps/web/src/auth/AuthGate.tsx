@@ -36,8 +36,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       try {
         const session = isRegistering ? await register(email, password, displayName || undefined) : await login(email, password);
         setSession(session);
-      } catch {
-        setError(isRegistering ? "Registration failed. Check the API URL and try again." : "Sign in failed. Check your email and password.");
+      } catch (exc) {
+        const message = exc instanceof Error ? exc.message : null;
+        setError(message ?? (isRegistering ? "Registration failed. Check the API URL and try again." : "Sign in failed. Check your email and password."));
       } finally {
         setSubmitting(false);
       }

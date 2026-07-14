@@ -168,7 +168,7 @@ class SupabaseAuthAdapter:
             json=payload,
             timeout=20,
         )
-        response.raise_for_status()
+        self._raise_for_status(response, operation=path)
         if not response.content:
             return {}
         return response.json()
@@ -191,7 +191,7 @@ class SupabaseAuthAdapter:
             ),
             timeout=20,
         )
-        response.raise_for_status()
+        self._raise_for_status(response, operation=path)
         return response.json()
 
     def _ensure_profile(
@@ -222,7 +222,7 @@ class SupabaseAuthAdapter:
             },
             timeout=20,
         )
-        response.raise_for_status()
+        self._raise_for_status(response, operation="profile_upsert")
         rows = response.json()
         if not rows:
             raise RuntimeError("Supabase profile upsert did not return a row")
@@ -240,9 +240,26 @@ class SupabaseAuthAdapter:
             },
             timeout=20,
         )
-        response.raise_for_status()
+        self._raise_for_status(response, operation="profile_fetch")
         rows = response.json()
         return self._profile_from_row(rows[0]) if rows else None
+
+    def _raise_for_status(self, response, *, operation: str) -> None:
+        if response.status_code < 400:
+            return
+        detail = self._safe_error_detail(response)
+        raise ValueError(f"Supabase {operation} failed: {detail}")
+
+    def _safe_error_detail(self, response) -> str:
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+        for key in ("msg", "message", "error_description", "error", "hint", "details"):
+            value = payload.get(key)
+            if value:
+                return str(value)
+        return f"HTTP {response.status_code}"
 
     def _profile_from_row(self, row: dict[str, Any]) -> Profile:
         return Profile(
