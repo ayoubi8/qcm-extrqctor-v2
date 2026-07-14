@@ -42,22 +42,6 @@ begin
 end;
 $$;
 
-create or replace function public.is_active_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.profiles p
-    where p.user_id = auth.uid()
-      and p.role = 'admin'
-      and p.status = 'active'
-  );
-$$;
-
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique check (email = lower(email)),
@@ -111,6 +95,22 @@ create table if not exists public.projects (
   deleted_at timestamptz,
   unique (user_id, project_id)
 );
+
+create or replace function public.is_active_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.user_id = auth.uid()
+      and p.role = 'admin'
+      and p.status = 'active'
+  );
+$$;
 
 create index if not exists idx_projects_user_status_updated
 on public.projects (user_id, status, updated_at desc);
