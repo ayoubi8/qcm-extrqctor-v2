@@ -26,4 +26,10 @@ def create_projects_router(project_service=None):
         )
         return project_service.create_project(command)
 
+    @router.get("/{project_id}/snapshot")
+    def project_snapshot(project_id: str, user_id: str):
+        if project_service is None:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Projects unavailable")
+        return project_service.snapshot(user_id=user_id, project_id=project_id)
+
     return router

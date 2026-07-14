@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 import type { Step2RunRequest } from "./types";
 
 function toApiConfig(request: Step2RunRequest) {
@@ -21,7 +22,7 @@ function toApiConfig(request: Step2RunRequest) {
 }
 
 export async function runCombinedStep2(request: Step2RunRequest, correlationId: string) {
-  const response = await fetch(`/projects/${request.projectId}/steps/step2/run`, {
+  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/steps/step2/run`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

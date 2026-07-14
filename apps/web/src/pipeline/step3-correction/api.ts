@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 import type { Step3CorrectionRunRequest } from "./types";
 
 function toApiConfig(request: Step3CorrectionRunRequest) {
@@ -13,7 +14,7 @@ function toApiConfig(request: Step3CorrectionRunRequest) {
 }
 
 export async function runStep3Correction(request: Step3CorrectionRunRequest, correlationId: string) {
-  const response = await fetch(`/projects/${request.projectId}/steps/step3-correction/run`, {
+  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/steps/step3-correction/run`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

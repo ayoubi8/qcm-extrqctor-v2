@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../config/apiBaseUrl";
 import type { Step4SimilarityRunRequest } from "./types";
 
 function toApiConfig(request: Step4SimilarityRunRequest) {
@@ -17,7 +18,7 @@ function toApiConfig(request: Step4SimilarityRunRequest) {
 }
 
 export async function runStep4Similarity(request: Step4SimilarityRunRequest, correlationId: string) {
-  const response = await fetch(`/projects/${request.projectId}/steps/step4-similarity/run`, {
+  const response = await fetch(`${API_BASE_URL}/projects/${request.projectId}/steps/step4-similarity/run`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -41,7 +42,7 @@ export async function runStep4Similarity(request: Step4SimilarityRunRequest, cor
 }
 
 export async function listReferenceDbs(userId: string) {
-  const response = await fetch(`/reference-dbs?user_id=${encodeURIComponent(userId)}`);
+  const response = await fetch(`${API_BASE_URL}/reference-dbs?user_id=${encodeURIComponent(userId)}`);
   if (!response.ok) {
     throw new Error(`Reference DB list request failed with ${response.status}`);
   }
