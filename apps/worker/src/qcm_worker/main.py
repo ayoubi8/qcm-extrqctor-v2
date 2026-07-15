@@ -33,7 +33,7 @@ from qcm_worker.health import worker_readiness  # noqa: E402
 from qcm_worker.runner import WorkerRunner  # noqa: E402
 
 
-def register_all_handlers() -> None:
+def register_all_handlers(task_service: TaskService | None = None) -> None:
     from qcm_worker.step1_handler import register_step1_handler
     from qcm_worker.step2_orchestrator_handler import register_step2_orchestrator_handler
     from qcm_worker.step3_correction_handler import register_step3_correction_handler
@@ -45,8 +45,8 @@ def register_all_handlers() -> None:
     register_step2_orchestrator_handler()
     register_step3_correction_handler()
     register_step4_similarity_handler()
-    register_manual_autorun_handler()
-    register_ai_autorun_handler()
+    register_manual_autorun_handler(task_service)
+    register_ai_autorun_handler(task_service)
 
 
 def build_worker_task_service() -> TaskService:
@@ -65,16 +65,18 @@ def build_worker_task_service() -> TaskService:
 
 def run_once(worker_id: str | None = None) -> bool:
     worker_id = worker_id or os.getenv("QCM_WORKER_ID", "local-worker-1")
-    register_all_handlers()
-    runner = WorkerRunner(worker_id=worker_id, task_service=build_worker_task_service())
+    task_service = build_worker_task_service()
+    register_all_handlers(task_service)
+    runner = WorkerRunner(worker_id=worker_id, task_service=task_service)
     return runner.run_once()
 
 
 def run_forever(worker_id: str | None = None) -> None:
     worker_id = worker_id or os.getenv("QCM_WORKER_ID", "local-worker-1")
-    register_all_handlers()
+    task_service = build_worker_task_service()
+    register_all_handlers(task_service)
     defaults = TaskRuntimeDefaults()
-    runner = WorkerRunner(worker_id=worker_id, task_service=build_worker_task_service())
+    runner = WorkerRunner(worker_id=worker_id, task_service=task_service)
     print(f"qcm-worker {worker_id} ready with {len(TASK_HANDLERS)} handlers", flush=True)
     while True:
         try:

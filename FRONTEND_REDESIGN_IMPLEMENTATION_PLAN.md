@@ -672,21 +672,294 @@ Validation output:
 
 File: `apps/web/src/ai_autorun/AiAutoRunWindow.tsx`
 
-Keep it as a small floating utility window.
+Redesign AI Auto Run as a guided automation progress window, inspired by the reference screenshot style, but adapted to QCM Extractor.
+
+The user should not configure models, templates, correction modes, thresholds, prompts, or metadata manually inside this window. The only user choice happens before launch:
+
+- Create a new project, upload/select source PDF, then click `AI run`.
+- Or restore/select an old project, then click `AI run`.
+
+After launch, the AI Auto Run window should show what the system is doing, what it selected, and what it completed. It should feel like the app is working with intelligence and transparency, while keeping configuration automatic.
 
 Design requirements:
 
 - Width: max 420px.
 - Header with bot icon, title, minimize, close.
 - Use icon buttons with `aria-label`.
-- Avoid nested cards if possible. Use form groups inside the window body instead.
-- Message: `AI summaries show evidence only. Private reasoning is never displayed.`
+- Avoid nested cards. The floating window itself is the container.
+- Remove the current planner form fields from the visible UI:
+  - No `Primary model` input.
+  - No `Template` input.
+  - No `Correction mode` select.
+- Replace the old safety note with: `For wrong results, use manual mode.`
 - Buttons:
-  - Launch: primary.
+  - Launch: primary, before run starts.
   - Retry: secondary.
   - Cancel: danger.
+  - Open results: primary, after run succeeds.
 
-Do not expose chain-of-thought or private reasoning. Only show evidence summaries, planned actions, statuses, and errors.
+Do not expose chain-of-thought or private reasoning. Only show stage names, selected configs, evidence summaries, progress counts, statuses, and errors.
+
+### AI Auto Run Experience
+
+The window should work like a progress timeline.
+
+Initial state:
+
+```txt
+AI Auto Run
+
+Ready to run automatic extraction for this project.
+
+[Launch AI run]
+```
+
+Running state:
+
+```txt
+AI Auto Run
+
+[spinner] We are analyzing your document...
+[empty]   We are checking the resident trends...
+[empty]   We are identifying the final outputs...
+[empty]   Preparing corrections and results...
+
+For wrong results, use manual mode.
+```
+
+Completed state:
+
+```txt
+AI Auto Run
+
+[check] Done
+
+60 QCMs extracted and corrections matched.
+
+[Open results]
+[Run again]
+```
+
+### AI Stage Titles
+
+Use four main user-facing stage titles. They should be calm, readable, and human. These are progress titles, not technical logs.
+
+1. `We are analyzing your document...`
+2. `We are checking the resident trends...`
+3. `We are identifying the final outputs...`
+4. `Preparing corrections and results...`
+
+Use `resident` exactly if the project vocabulary is medical residency. Do not use the typo `residanat` in UI text.
+
+### AI Stage 1: Document Analysis And Text Extraction
+
+User-facing title:
+
+`We are analyzing your document...`
+
+Detailed progress lines shown under this active stage:
+
+```txt
+Choosing extraction mode...
+Direct PDF extraction selected.
+OCR selected for scanned pages.
+Page 1 extracted.
+Page 2 extracted.
+Page 3 extracted.
+Text extraction finished.
+```
+
+Rules:
+
+- The system decides between `direct PDF extraction`, `OCR`, or `mixed extraction`.
+- If OCR is selected, show `OCR selected for scanned pages.`
+- If direct extraction is selected, show `Direct PDF extraction selected.`
+- If mixed mode is selected, show `Mixed extraction selected.`
+- Show page-by-page progress when available.
+- End with `Text extraction finished.`
+
+### AI Stage 2: QCM Extraction And Metadata Detection
+
+User-facing title:
+
+`We are checking the resident trends...`
+
+Detailed progress lines:
+
+```txt
+QCM extraction started...
+7 QCMs extracted.
+10 QCMs extracted.
+9 QCMs extracted.
+Total extracted: 60 QCMs.
+AI is choosing metadata detection config...
+Step config selected.
+Metadata detection started...
+Metadata detected.
+```
+
+Rules:
+
+- Show running extracted counts as the backend reports batches.
+- Always show the total when extraction finishes.
+- Let the AI choose metadata config automatically.
+- Show only concise decisions, not hidden reasoning.
+- Good text: `AI is choosing metadata detection config...`
+- Bad text: `AI reasoning: I chose this because...`
+
+### AI Stage 3: Output Generation
+
+User-facing title:
+
+`We are identifying the final outputs...`
+
+Detailed progress lines:
+
+```txt
+Building JSON output...
+Building XLSX output...
+JSON and XLSX generated.
+```
+
+Alternative if only JSON is produced:
+
+```txt
+Building JSON output...
+JSON generated.
+```
+
+Rules:
+
+- Use `JSON`, not `jsond`.
+- Use `XLSX`, not `xlsx` in final polished UI labels.
+- After output generation, automatically update the artifact/results area.
+
+### AI Stage 4: Correction Matching And Final Results
+
+User-facing title:
+
+`Preparing corrections and results...`
+
+Detailed progress lines:
+
+```txt
+AI is setting correction config...
+Correction config selected.
+Correction matching started...
+60 corrections found and matched.
+Results are ready.
+```
+
+Rules:
+
+- The AI sets correction config automatically.
+- Show correction matching progress if available.
+- End with a strong success state.
+- The success state should be visibly green and celebratory but still professional.
+
+### Done State
+
+When the full AI run succeeds:
+
+- Show a large green check icon.
+- Show large text: `Done`.
+- Show summary: `60 QCMs extracted and corrections matched.`
+- Open the results automatically in the right-side results/preview area.
+- Select the latest run automatically.
+- Select the newest primary artifact automatically.
+- If app routing supports tabs, open the results view in a new app tab/section automatically.
+- If browser popup rules block a real new browser tab, do not force a popup. Instead switch the in-app view to results and show an `Open results` button.
+
+Done state layout:
+
+```txt
+        [green check icon]
+              Done
+60 QCMs extracted and corrections matched.
+
+[Open results] [Run again]
+```
+
+### Error State
+
+If AI Auto Run fails:
+
+```txt
+AI Auto Run
+
+[failed stage] QCM extraction failed.
+
+The run stopped before outputs were generated.
+
+[Retry] [Use manual mode]
+```
+
+Rules:
+
+- Show the failed stage.
+- Preserve completed stage logs above the failed stage.
+- Offer retry.
+- Offer manual mode.
+- Do not hide partial artifacts if they exist.
+
+### Visual Style For The Floating Window
+
+Follow the main redesign plan tokens, but use a slightly lighter panel surface so it reads as a focused modal:
+
+- Backdrop behind modal: `rgba(7, 10, 15, 0.62)` with blur.
+- Window background: `--qcm-surface-raised`.
+- Border: `1px solid rgba(56, 199, 232, 0.32)`.
+- Top accent line: cyan, showing progress percentage.
+- Radius: 8px.
+- Shadow: strong overlay shadow only here.
+- Width: `min(460px, calc(100vw - 32px))`.
+- Mobile: centered with 16px margins.
+
+Timeline row styles:
+
+- Active stage: cyan spinner or partial ring, bright text.
+- Completed stage: green check, normal bright text.
+- Pending stage: muted empty circle, muted text.
+- Failed stage: red alert icon, red text.
+- Detail logs: 12px muted text, indented below the active/completed stage.
+
+Do not use a white modal like the screenshot if the rest of the app is dark. Keep it consistent with the QCM Extractor dark console style.
+
+### Required AI Auto Run State Model
+
+GLM should add a UI state model that can represent stage progress without depending on hidden AI reasoning.
+
+Suggested frontend types:
+
+```ts
+type AiAutoRunStageId =
+  | "document_analysis"
+  | "qcm_extraction"
+  | "output_generation"
+  | "correction_matching";
+
+type AiAutoRunStageStatus = "pending" | "active" | "completed" | "failed";
+
+interface AiAutoRunStageView {
+  id: AiAutoRunStageId;
+  title: string;
+  status: AiAutoRunStageStatus;
+  detailLines: string[];
+}
+
+interface AiAutoRunProgressView {
+  status: "idle" | "running" | "completed" | "failed";
+  percent: number;
+  stages: AiAutoRunStageView[];
+  extractedQcmCount?: number;
+  matchedCorrectionCount?: number;
+  latestRunId?: string;
+  latestArtifactVersionId?: string;
+  errorMessage?: string;
+}
+```
+
+This state can be fed by real backend events later. For now, GLM may map existing run/terminal events into this structure.
 
 ## 17. Shared Components To Add Or Improve
 
@@ -818,7 +1091,7 @@ Tasks:
 1. Redesign artifact rows and preview metadata.
 2. Integrate terminal visually with the app frame.
 3. Redesign Auto Run drawer with sticky footer and close icon.
-4. Redesign AI Auto Run floating window without nested cards.
+4. Redesign AI Auto Run as an automatic guided progress window with no visible user configuration fields.
 5. Improve empty, fallback, error, and success states.
 
 ### Phase 5: QA And Polish
@@ -848,6 +1121,8 @@ The redesign is complete when:
 - Colors come from semantic tokens.
 - Artifacts and terminal events are easy to scan.
 - Auto Run and AI Auto Run feel integrated, not bolted on.
+- AI Auto Run requires no visible configuration after project selection and shows automatic stage progress.
+- AI Auto Run ends with a green `Done` state and opens/selects the latest results automatically.
 - The UI works without overlap at desktop, tablet, and mobile widths.
 - `npm --workspace apps/web run build` passes.
 
@@ -860,4 +1135,3 @@ This plan is only for the new version frontend:
 Do not redesign the old frontend at:
 
 `C:\Users\ayoub\Documents\qcm\frontend`
-
