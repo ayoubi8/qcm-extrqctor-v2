@@ -20,6 +20,38 @@ from qcm_shared.contracts import TaskStatus
 from qcm_shared.task_contracts import TaskCreateCommand
 from qcm_worker.handlers import TASK_HANDLERS, register_handler
 
+try:
+    from qcm_infrastructure.pdf.pypdf_extractor import PypdfTextExtractor
+    from qcm_infrastructure.storage.rest_adapter import SupabaseStorageRestAdapter
+    from qcm_infrastructure.db.postgrest import PostgrestClient
+    import os
+    _FETCH_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _FETCH_AVAILABLE = False
+
+
+def _fetch_and_extract_pages(source_file_id: str) -> list[dict]:
+    """Download the source PDF and extract page texts for Step 2 consumption."""
+    if not _FETCH_AVAILABLE or not source_file_id:
+        return []
+    sup_url = os.getenv("SUPABASE_URL", "")
+    sr = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    anon = os.getenv("SUPABASE_ANON_KEY") or sr
+    if not sup_url or not sr:
+        return []
+    try:
+        client = PostgrestClient(sup_url, anon, service_role=sr)
+        row = client.select_one("source_files", columns="storage_key", params={"source_file_id": f"eq.{source_file_id}"})
+        if not row or not row.get("storage_key"):
+            return []
+        storage = SupabaseStorageRestAdapter(sup_url, anon, service_role=sr)
+        pdf_bytes = storage.get_object(row["storage_key"])
+        extractor = PypdfTextExtractor()
+        pages = extractor.extract_pages(pdf_bytes)
+        return [{"page_number": p.page_number, "text": p.text} for p in pages if p.text.strip()]
+    except Exception:
+        return []
+
 
 def _snapshot_from_payload(payload: dict[str, Any]) -> ManualAutoRunSnapshot:
     raw = payload.get("snapshot") or {}
@@ -40,7 +72,7 @@ def _snapshot_from_payload(payload: dict[str, Any]) -> ManualAutoRunSnapshot:
     )
 
 
-def _build_child_payload(step_key: str, step_config: dict, payload: dict[str, Any]) -> dict[str, Any]:
+def _build_child_payload(step_key: str, step_config: dict, payload: dict[str, Any], *, pages: list[dict] | None = None) -> dict[str, Any]:
     """Build a task payload appropriate for the step's handler."""
     base = {
         "user_id": payload.get("user_id", ""),
@@ -53,7 +85,7 @@ def _build_child_payload(step_key: str, step_config: dict, payload: dict[str, An
     }
     if step_key == "step2":
         base["step1_artifact_ids"] = ["auto-run-step1-placeholder"]
-        base["pages"] = []
+        base["pages"] = pages or []
         base["previous_cycle_data"] = {}
     elif step_key == "step3-correction":
         base["step2_artifact_ids"] = []
@@ -104,8 +136,12 @@ def register_manual_autorun_handler(task_service: TaskService | None = None) -> 
 
         if task_service is not None:
             auto_run_id = payload.get("auto_run_id", "")
+            # Pre-extract page texts so Step 2 has content to process
+            source_file_id = payload.get("source_file_id", "")
+            extracted_pages = _fetch_and_extract_pages(source_file_id) if source_file_id else []
+
             for step in validation.normalized_steps:
-                child_payload = _build_child_payload(step.step_key, step.config, payload)
+                child_payload = _build_child_payload(step.step_key, step.config, payload, pages=extracted_pages)
                 idem_key = f"auto:{auto_run_id}:{step.step_key}" if auto_run_id else f"auto:{step.step_key}:{uuid4()}"
                 task = task_service.create_task(
                     TaskCreateCommand(
