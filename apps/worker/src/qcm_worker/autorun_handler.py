@@ -52,7 +52,7 @@ def _build_child_payload(step_key: str, step_config: dict, payload: dict[str, An
         "auto_run_id": payload.get("auto_run_id", ""),
     }
     if step_key == "step2":
-        base["step1_artifact_ids"] = []
+        base["step1_artifact_ids"] = ["auto-run-step1-placeholder"]
         base["pages"] = []
         base["previous_cycle_data"] = {}
     elif step_key == "step3-correction":
