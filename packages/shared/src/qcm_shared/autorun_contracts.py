@@ -52,6 +52,8 @@ class ManualAutoRunStartCommand:
     snapshot: ManualAutoRunSnapshot
     idempotency_key: str
     correlation_id: str
+    source_file_id: str = ""
+    source_filename: str = "source.pdf"
 
 
 @dataclass(frozen=True, slots=True)

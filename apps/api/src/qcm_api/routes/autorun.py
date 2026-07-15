@@ -61,6 +61,8 @@ def create_autorun_router(autorun_service=None, current_user=None):
                     snapshot=_snapshot_from_payload(payload),
                     idempotency_key=payload.get("idempotency_key", ""),
                     correlation_id=x_correlation_id,
+                    source_file_id=payload.get("source_file_id", ""),
+                    source_filename=payload.get("source_filename", "source.pdf"),
                 )
             )
         except ValueError as exc:

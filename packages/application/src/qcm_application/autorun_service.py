@@ -134,6 +134,8 @@ class ManualAutoRunService:
                         "project_id": command.project_id,
                         "run_id": command.run_id,
                         "snapshot": _snapshot_payload(record.snapshot),
+                        "source_file_id": command.source_file_id,
+                        "source_filename": command.source_filename,
                     },
                 )
             )
